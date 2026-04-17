@@ -3,34 +3,76 @@
   import { reactive, onMounted, ref } from 'vue';
   import Navbar from '../components/Navbar.vue';
   import ProductCard from '../components/ProductCard.vue';
+  import axios from '../utils/axios';
+  import { ElMessage } from 'element-plus';
 
   const props = defineProps({});
 
   const data = reactive({});
   const value1 = ref([]);
-  const options = [
-    { value: 'electronics', label: '电子产品' },
-    { value: 'clothing', label: '服装' },
-    { value: 'books', label: '图书' },
-    { value: 'sports', label: '运动器材' },
-    { value: 'furniture', label: '家具' },
-    { value: 'other', label: '其他' }
-  ];
+  
+  const cascaderProps = {
+    expandTrigger: 'hover'
+  };
+  
+  const handleChange = (value) => {
+    console.log('选中的分类:', value);
+    if (value && value.length > 0) {
+      const categoryId = value[value.length - 1];
+      fetchProducts(categoryId);
+    } else {
+      fetchProducts();
+    }
+  };
+  
+  const options = ref([]);
 
-  // 模拟后端返回的商品列表数据
-  const productList = ref([
-    { id: 1, name: '商品1', price: 50, merchant: '商家1' },
-    { id: 2, name: '商品2', price: 80, merchant: '商家2' },
-    { id: 3, name: '商品3', price: 120, merchant: '商家3' },
-    { id: 4, name: '商品4', price: 65, merchant: '商家4' },
-    { id: 5, name: '商品5', price: 200, merchant: '商家5' },
-    { id: 6, name: '商品6', price: 45, merchant: '商家6' },
-    { id: 7, name: '商品7', price: 88, merchant: '商家7' },
-    { id: 8, name: '商品8', price: 150, merchant: '商家8' },
-    { id: 9, name: '商品9', price: 180, merchant: '商家9' }
-  ]);
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get('/product/categories');
+      if (response && response.code === 200) {
+        options.value = response.data;
+      } else {
+        ElMessage.error(response?.message || '获取分类失败');
+      }
+    } catch (error) {
+      console.error('获取分类失败:', error);
+      ElMessage.error('获取分类失败，请稍后重试');
+    }
+  };
+
+  const productList = ref([]);
 
   const router = useRouter();
+
+  const fetchProducts = async (categoryId = null) => {
+    try {
+      let url = '/product/search';
+      if (categoryId) {
+        url += `?categoryId=${categoryId}`;
+      }
+      const response = await axios.get(url);
+      if (response && response.code === 200) {
+        productList.value = response.data.map(item => ({
+          id: item.id,
+          name: item.productName,
+          price: item.discountPrice,
+          merchant: item.merchantName,
+          image: item.firstImage ? `http://localhost:8080/campus-market${item.firstImage}` : ''
+        }));
+      } else {
+        ElMessage.error(response?.message || '获取商品列表失败');
+      }
+    } catch (error) {
+      console.error('获取商品列表失败:', error);
+      ElMessage.error('获取商品列表失败，请稍后重试');
+    }
+  };
+
+  onMounted(() => {
+    fetchProducts();
+    fetchCategories();
+  });
 </script>
 
 <template>
@@ -44,25 +86,24 @@
     </el-carousel>
     
     <div class="flex-col section_2 mt-265">
-      <el-select 
+      <el-cascader 
         v-model="value1" 
-        multiple 
-        collapse-tags 
-        placeholder="请选择商品分类" 
-        class="category-select">
-        <el-option
-          v-for="item in options"
-          :key="item.value"
-          :label="item.label"
-          :value="item.value">
-        </el-option>
-      </el-select>
-      <div class="mt-10 grid">
+        :options="options" 
+        :props="cascaderProps" 
+        @change="handleChange"
+        placeholder="请选择商品分类"
+        class="category-select"
+        clearable
+      />
+      <div class="mt-10 grid" v-if="productList.length > 0">
         <ProductCard 
           v-for="product in productList" 
           :key="product.id" 
           :product="product" 
         />
+      </div>
+      <div class="mt-10 empty-tip" v-else>
+        <span class="empty-text">暂无商品</span>
       </div>
     </div>
   </div>
@@ -100,19 +141,24 @@
   }
   ::v-deep(.category-select) {
     --el-border-radius-base: 30px !important;
+    width: 144px;
   }
-  ::v-deep(.category-select .el-select__wrapper) {
+  ::v-deep(.category-select .el-input__wrapper) {
     height: 39px !important;
     border-radius: 30px !important;
     box-shadow: none !important;
     border: solid 1px #000000 !important;
+    padding: 0 15px !important;
   }
-  ::v-deep(.category-select .el-select__wrapper.is-hovering) {
+  ::v-deep(.category-select .el-input__inner) {
+    padding-left: 5px !important;
+  }
+  ::v-deep(.category-select .el-input__wrapper:hover) {
     box-shadow: none !important;
     border-color: #ff0000 !important;
     box-shadow: 0px 0px 4px rgba(255, 0, 0, 0.3) !important;
   }
-  ::v-deep(.category-select .el-select__wrapper.is-focused) {
+  ::v-deep(.category-select .el-input__wrapper.is-focus) {
     box-shadow: none !important;
     border-color: #ff0000 !important;
     box-shadow: 0px 0px 6px rgba(255, 0, 0, 0.5) !important;
@@ -123,6 +169,19 @@
     grid-auto-rows: 340px;
     row-gap: 11.5px;
     column-gap: 16.5px;
+  }
+  .empty-tip {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+    width: 100%;
+  }
+  .empty-text {
+    font-size: 18px;
+    font-family: Inter;
+    color: #999999;
+    font-weight: 500;
   }
   /* 轮播图样式 */
   .el-carousel__item h3 {

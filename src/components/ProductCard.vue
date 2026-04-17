@@ -1,16 +1,16 @@
 <template>
   <div class="flex-col grid-item" @click="goToProductDetail">
-    <div class="shrink-0 self-stretch section_3"></div>
+    <img class="product-image" :src="product.image" v-if="product.image" />
+    <div class="shrink-0 self-stretch section_3" v-else></div>
     <span class="self-start font_2 text_6">{{ product.name }}</span>
     <div class="self-start group">
       <span class="font_4">￥</span>
       <span class="font_3">{{ product.price }}</span>
     </div>
     <div class="flex-row self-stretch group_3">
-      <img
-        class="image_2"
-        src="https://ide.code.fun/api/image?token=69e0ef3d97ce84001185e058&name=85270b8dd7011891e9a2086683eb540f.png"
-      />
+      <div class="merchant-avatar-small">
+        <span class="avatar-text-small">{{ getMerchantAvatarText() }}</span>
+      </div>
       <span class="font ml-11">{{ product.merchant }}</span>
     </div>
   </div>
@@ -28,14 +28,21 @@ const props = defineProps({
     default: () => ({
       name: '商品名称',
       price: 0,
-      merchant: '商家名称'
+      merchant: '商家名称',
+      image: ''
     })
   }
 });
 
 const goToProductDetail = () => {
-  // 跳转到商品详情页
   router.push(`/product/${props.product.id}`);
+};
+
+const getMerchantAvatarText = () => {
+  if (!props.product.merchant) {
+    return '?';
+  }
+  return props.product.merchant.substring(0, 2).toUpperCase();
 };
 </script>
 
@@ -53,6 +60,11 @@ const goToProductDetail = () => {
   filter: drop-shadow(0px 0px 7.5px #00000040);
   transform: translateY(-2px);
   background-color: #f8f8f8;
+}
+.product-image {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
 }
 .section_3 {
   background-color: #e0e0e0;
@@ -91,10 +103,25 @@ const goToProductDetail = () => {
 .group_3 {
   margin-top: 8px;
   padding: 0 10px;
+  display: flex;
+  align-items: center;
 }
-.image_2 {
+.merchant-avatar-small {
   width: 14px;
   height: 14px;
+  border-radius: 50%;
+  background-color: #d03838;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+.avatar-text-small {
+  color: #ffffff;
+  font-size: 8px;
+  font-family: Inter;
+  font-weight: 600;
+  line-height: 8px;
 }
 .font {
   font-size: 12px;

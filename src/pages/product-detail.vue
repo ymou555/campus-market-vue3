@@ -1,35 +1,34 @@
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import BackButton from '../components/BackButton.vue';
 import StatusTag from '../components/StatusTag.vue';
+import axios from '../utils/axios';
 import { ElMessage } from 'element-plus';
 
 const router = useRouter();
 const route = useRoute();
 
 const product = reactive({
-  id: 1,
-  name: 'iPhone 13 Pro 256GB 远峰蓝色',
-  price: 5999,
-  originalPrice: 7999,
-  stock: 15,
-  condition: 'almost-new',
-  conditionText: '几乎全新',
-  description: 'iPhone 13 Pro，256GB存储，远峰蓝色。购买于2022年3月，使用一年半，无任何划痕和磕碰，屏幕完美，电池健康度92%。配件齐全，包含原装充电器、数据线、耳机和包装盒。支持当面交易，可验货。',
-  images: [
-    'https://via.placeholder.com/400',
-    'https://via.placeholder.com/400',
-    'https://via.placeholder.com/400',
-    'https://via.placeholder.com/400'
-  ],
-  merchant: {
-    id: 1,
-    name: '数码小店',
-    rating: 4.8,
-    sales: 256,
-    avatar: 'https://via.placeholder.com/60'
-  }
+  id: null,
+  name: '',
+  price: 0,
+  originalPrice: 0,
+  stock: 0,
+  size: '',
+  salesCount: 0,
+  isNegotiable: true,
+  condition: 'good',
+  description: '',
+  images: []
+});
+
+const merchant = reactive({
+  id: null,
+  name: '',
+  rating: 0,
+  sales: 0,
+  reviewCount: 0
 });
 
 const reviews = ref([
@@ -44,9 +43,70 @@ const isCollected = ref(false);
 
 const conditionMap = {
   'new': { text: '全新', status: 'success' },
-  'almost-new': { text: '几乎全新', status: 'success' },
+  'like_new': { text: '几乎全新', status: 'success' },
   'good': { text: '良好', status: 'info' },
   'fair': { text: '一般', status: 'warning' }
+};
+
+const fetchProductDetail = async () => {
+  try {
+    const productId = route.params.id || route.query.id;
+    if (!productId) {
+      ElMessage.error('商品ID不存在');
+      return;
+    }
+    
+    const response = await axios.get(`/product/detail?id=${productId}`);
+    if (response && response.code === 200) {
+      const productData = response.product;
+      product.id = productData.id;
+      product.name = productData.productName;
+      product.price = productData.discountPrice;
+      product.originalPrice = productData.originalPrice;
+      product.stock = productData.stock;
+      product.size = productData.size;
+      product.salesCount = productData.salesCount;
+      product.isNegotiable = productData.isNegotiable;
+      product.condition = productData.newness;
+      product.description = productData.description;
+      
+      if (response.images && response.images.length > 0) {
+        product.images = response.images.map(img => 
+          `http://localhost:8080/campus-market${img.imageUrl}`
+        );
+      }
+      
+      fetchMerchantStats(productId);
+    } else {
+      ElMessage.error(response?.message || '获取商品详情失败');
+    }
+  } catch (error) {
+    console.error('获取商品详情失败:', error);
+    ElMessage.error('获取商品详情失败，请稍后重试');
+  }
+};
+
+const fetchMerchantStats = async (productId) => {
+  try {
+    const response = await axios.get(`/merchant/stats?productId=${productId}`);
+    if (response && response.code === 200) {
+      const data = response.data;
+      merchant.id = data.userId;
+      merchant.name = data.shopName;
+      merchant.rating = data.avgRating;
+      merchant.sales = data.totalSales;
+      merchant.reviewCount = data.reviewCount;
+    }
+  } catch (error) {
+    console.error('获取商家信息失败:', error);
+  }
+};
+
+const getMerchantAvatarText = () => {
+  if (!merchant.name) {
+    return '?';
+  }
+  return merchant.name.substring(0, 2).toUpperCase();
 };
 
 const selectImage = (index) => {
@@ -54,7 +114,7 @@ const selectImage = (index) => {
 };
 
 const goToMerchant = () => {
-  router.push(`/shop/${product.merchant.id}`);
+  router.push(`/shop/${merchant.id}`);
 };
 
 const toggleCollect = () => {
@@ -82,6 +142,36 @@ const increaseQuantity = () => {
     quantity.value++;
   }
 };
+
+const negotiateDialogVisible = ref(false);
+const negotiatePrice = ref('');
+
+const openNegotiateDialog = () => {
+  if (product.isNegotiable) {
+    negotiateDialogVisible.value = true;
+    negotiatePrice.value = '';
+  }
+};
+
+const submitNegotiate = () => {
+  if (!negotiatePrice.value || isNaN(negotiatePrice.value) || parseFloat(negotiatePrice.value) <= 0) {
+    ElMessage.warning('请输入有效的议价金额');
+    return;
+  }
+  if (parseFloat(negotiatePrice.value) >= product.price) {
+    ElMessage.warning('议价金额应低于商品价格');
+    return;
+  }
+  ElMessage.success(`已提交议价申请：¥${negotiatePrice.value}`);
+  negotiateDialogVisible.value = false;
+  negotiatePrice.value = '';
+};
+
+onMounted(() => {
+  fetchProductDetail();
+});
+
+
 </script>
 
 <template>
@@ -133,13 +223,25 @@ const increaseQuantity = () => {
           <span class="info-value">{{ product.stock }} 件</span>
         </div>
         
+        <div class="info-row">
+          <span class="info-label">尺寸</span>
+          <span class="info-value">{{ product.size }}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label">销量</span>
+          <span class="info-value">{{ product.salesCount }} 件</span>
+        </div>
+        
         <div class="merchant-section">
-          <img :src="product.merchant.avatar" class="merchant-avatar" />
+          <div class="merchant-avatar">
+            <span class="avatar-text">{{ getMerchantAvatarText() }}</span>
+          </div>
           <div class="merchant-info">
-            <div class="merchant-name">{{ product.merchant.name }}</div>
+            <div class="merchant-name">{{ merchant.name }}</div>
             <div class="merchant-stats">
-              <span class="stat-item">评分: {{ product.merchant.rating }}</span>
-              <span class="stat-item">销量: {{ product.merchant.sales }}</span>
+              <span class="stat-item">评分: {{ merchant.rating }}</span>
+              <span class="stat-item">销量: {{ merchant.sales }}</span>
             </div>
           </div>
           <button class="visit-btn" @click="goToMerchant">进入店铺</button>
@@ -158,11 +260,50 @@ const increaseQuantity = () => {
           <button class="action-btn collect-btn" :class="{ collected: isCollected }" @click="toggleCollect">
             {{ isCollected ? '已收藏' : '收藏' }}
           </button>
+          <button 
+            class="action-btn negotiate-btn" 
+            :class="{ disabled: !product.isNegotiable }"
+            :disabled="!product.isNegotiable"
+            @click="openNegotiateDialog"
+          >
+            {{ product.isNegotiable ? '议价' : '不可议价' }}
+          </button>
           <button class="action-btn cart-btn" @click="addToCart">加入购物车</button>
           <button class="action-btn buy-btn" @click="buyNow">立即购买</button>
         </div>
       </div>
     </div>
+    
+    <el-dialog 
+      v-model="negotiateDialogVisible" 
+      title="议价申请" 
+      width="400px"
+      :close-on-click-modal="false"
+    >
+      <div class="negotiate-dialog-content">
+        <div class="negotiate-info">
+          <span class="negotiate-label">商品价格：</span>
+          <span class="negotiate-price">¥{{ product.price }}</span>
+        </div>
+        <div class="negotiate-input-section">
+          <span class="negotiate-label">议价金额：</span>
+          <el-input 
+            v-model="negotiatePrice" 
+            placeholder="请输入议价金额"
+            type="number"
+            class="negotiate-input"
+          >
+            <template #prepend>¥</template>
+          </el-input>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="negotiateDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitNegotiate">提交</el-button>
+        </span>
+      </template>
+    </el-dialog>
     
     <div class="detail-container">
       <div class="description-section">
@@ -359,7 +500,19 @@ const increaseQuantity = () => {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  border: 2px solid #e0e0e0;
+  background-color: #d03838;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.avatar-text {
+  color: #ffffff;
+  font-size: 24px;
+  font-family: Inter;
+  font-weight: 600;
+  line-height: 22px;
 }
 
 .merchant-info {
@@ -498,6 +651,71 @@ const increaseQuantity = () => {
 .buy-btn:hover {
   background-color: #b04a3c;
   transform: scale(1.02);
+}
+
+.negotiate-btn {
+  background-color: #ffffff;
+  border: 2px solid #ff9800;
+  color: #ff9800;
+}
+
+.negotiate-btn:hover {
+  background-color: rgba(255, 152, 0, 0.1);
+}
+
+.negotiate-btn.disabled {
+  background-color: #f5f5f5;
+  border-color: #d9d9d9;
+  color: #bfbfbf;
+  cursor: not-allowed;
+}
+
+.negotiate-btn.disabled:hover {
+  background-color: #f5f5f5;
+}
+
+.negotiate-dialog-content {
+  padding: 10px 0;
+}
+
+.negotiate-info {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.negotiate-label {
+  font-size: 14px;
+  color: #666666;
+  font-family: Inter;
+}
+
+.negotiate-price {
+  font-size: 18px;
+  font-weight: 600;
+  color: #cb5747;
+  font-family: Inter;
+}
+
+.negotiate-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.negotiate-input {
+  width: 100%;
+}
+
+::v-deep(.negotiate-input .el-input__wrapper) {
+  border-radius: 8px;
+}
+
+::v-deep(.negotiate-input .el-input-group__prepend) {
+  background-color: #f5f5f5;
+  border-radius: 8px 0 0 8px;
+  color: #666666;
+  font-weight: 600;
 }
 
 .detail-container {
