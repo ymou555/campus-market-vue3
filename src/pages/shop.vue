@@ -15,8 +15,7 @@ const merchant = reactive({
   rating: 0,
   sales: 0,
   reviewCount: 0,
-  level: 1,
-  productCount: 0
+  level: 1
 });
 
 const productList = ref([]);
@@ -37,13 +36,18 @@ const fetchMerchantInfo = async () => {
       return;
     }
     
-    merchant.id = merchantId;
-    merchant.name = '二手数码店';
-    merchant.rating = 4.8;
-    merchant.sales = 256;
-    merchant.reviewCount = 15;
-    merchant.level = 3;
-    merchant.productCount = 12;
+    const response = await axios.get(`/merchant/stats/by-user?userId=${merchantId}`);
+    if (response && response.code === 200) {
+      const data = response.data;
+      merchant.id = data.userId;
+      merchant.name = data.shopName;
+      merchant.rating = data.avgRating;
+      merchant.sales = data.totalSales;
+      merchant.reviewCount = data.reviewCount;
+      merchant.level = data.levelId;
+    } else {
+      ElMessage.error(response?.message || '获取商家信息失败');
+    }
   } catch (error) {
     console.error('获取商家信息失败:', error);
     ElMessage.error('获取商家信息失败，请稍后重试');
@@ -57,7 +61,7 @@ const fetchMerchantProducts = async () => {
       return;
     }
     
-    const response = await axios.get(`/product/search?merchantId=${merchantId}`);
+    const response = await axios.get(`/product/merchant/list?merchantId=${merchantId}`);
     if (response && response.code === 200) {
       productList.value = response.data.map(item => ({
         id: item.id,
@@ -79,13 +83,16 @@ const fetchMerchantReviews = async () => {
       return;
     }
     
-    reviews.value = [
-      { id: 1, user: '张三', rating: 5, content: '商品质量很好，卖家很诚信，发货速度快', time: '2024-01-15' },
-      { id: 2, user: '李四', rating: 4, content: '包装完好，商品与描述一致，性价比高', time: '2024-01-12' },
-      { id: 3, user: '王五', rating: 5, content: '卖家服务态度很好，有问题及时回复', time: '2024-01-10' },
-      { id: 4, user: '赵六', rating: 4, content: '物流很快，商品质量不错，推荐购买', time: '2024-01-08' },
-      { id: 5, user: '钱七', rating: 5, content: '第二次购买了，一如既往的好', time: '2024-01-05' }
-    ];
+    const response = await axios.get(`/review/merchant/list?merchantId=${merchantId}`);
+    if (response && response.code === 200) {
+      reviews.value = response.data.map(item => ({
+        id: item.id,
+        user: item.username,
+        rating: item.rating,
+        content: item.content,
+        time: item.createTime
+      }));
+    }
   } catch (error) {
     console.error('获取商家评价失败:', error);
   }
@@ -148,10 +155,6 @@ onMounted(() => {
             <div class="stat-item">
               <span class="stat-label">销量</span>
               <span class="stat-value">{{ merchant.sales }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">商品</span>
-              <span class="stat-value">{{ merchant.productCount }}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">评价</span>

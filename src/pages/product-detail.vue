@@ -31,11 +31,11 @@ const merchant = reactive({
   reviewCount: 0
 });
 
-const reviews = ref([
-  { id: 1, user: '用户A', rating: 5, content: '商品质量很好，卖家很诚信', time: '2024-01-15', avatar: 'https://via.placeholder.com/40' },
-  { id: 2, user: '用户B', rating: 4, content: '发货速度快，包装完好', time: '2024-01-10', avatar: 'https://via.placeholder.com/40' },
-  { id: 3, user: '用户C', rating: 5, content: '性价比很高，推荐购买', time: '2024-01-05', avatar: 'https://via.placeholder.com/40' }
-]);
+const reviews = ref([]);
+
+const productRating = reactive({
+  avgRating: 0
+});
 
 const currentImageIndex = ref(0);
 const quantity = ref(1);
@@ -102,11 +102,56 @@ const fetchMerchantStats = async (productId) => {
   }
 };
 
+const fetchProductRating = async () => {
+  try {
+    const productId = route.params.id || route.query.id;
+    if (!productId) {
+      return;
+    }
+    
+    const response = await axios.get(`/review/product/rating?productId=${productId}`);
+    if (response && response.code === 200) {
+      productRating.avgRating = response.rating;
+    }
+  } catch (error) {
+    console.error('获取商品评分失败:', error);
+  }
+};
+
+const fetchProductReviews = async () => {
+  try {
+    const productId = route.params.id || route.query.id;
+    if (!productId) {
+      return;
+    }
+    
+    const response = await axios.get(`/review/product/list?productId=${productId}`);
+    if (response && response.code === 200) {
+      reviews.value = response.data.map(item => ({
+        id: item.id,
+        user: item.username,
+        rating: item.rating,
+        content: item.content,
+        time: item.createTime
+      }));
+    }
+  } catch (error) {
+    console.error('获取商品评价失败:', error);
+  }
+};
+
 const getMerchantAvatarText = () => {
   if (!merchant.name) {
     return '?';
   }
   return merchant.name.substring(0, 2).toUpperCase();
+};
+
+const getUserAvatarText = (username) => {
+  if (!username) {
+    return '?';
+  }
+  return username.substring(0, 2).toUpperCase();
 };
 
 const selectImage = (index) => {
@@ -169,6 +214,8 @@ const submitNegotiate = () => {
 
 onMounted(() => {
   fetchProductDetail();
+  fetchProductRating();
+  fetchProductReviews();
 });
 
 
@@ -312,14 +359,23 @@ onMounted(() => {
       </div>
       
       <div class="reviews-section">
-        <div class="reviews-header">
-          <h3 class="section-title">商品评价</h3>
-          <span class="view-all" @click="router.push(`/product/${product.id}/reviews`)">查看全部</span>
+        <h3 class="section-title">商品评价</h3>
+        
+        <div class="rating-summary" v-if="reviews.length > 0">
+          <div class="rating-score">{{ productRating.avgRating.toFixed(1) }}</div>
+          <div class="rating-info">
+            <div class="rating-stars">
+              <span v-for="i in 5" :key="i" class="star-large" :class="{ filled: i <= Math.round(productRating.avgRating) }">★</span>
+            </div>
+            <div class="rating-count">{{ reviews.length }} 条评价</div>
+          </div>
         </div>
         
-        <div class="review-list">
+        <div class="review-list" v-if="reviews.length > 0">
           <div v-for="review in reviews" :key="review.id" class="review-item">
-            <img :src="review.avatar" class="review-avatar" />
+            <div class="review-avatar">
+              <span class="avatar-text-small">{{ getUserAvatarText(review.user) }}</span>
+            </div>
             <div class="review-content">
               <div class="review-header">
                 <span class="review-user">{{ review.user }}</span>
@@ -331,6 +387,9 @@ onMounted(() => {
               <span class="review-time">{{ review.time }}</span>
             </div>
           </div>
+        </div>
+        <div class="empty-tip" v-else>
+          <span class="empty-text">暂无评价</span>
         </div>
       </div>
     </div>
@@ -756,6 +815,50 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
+.rating-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background-color: #fafafa;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.rating-score {
+  font-size: 48px;
+  font-family: Inter;
+  font-weight: 700;
+  color: #ff9800;
+  line-height: 1;
+}
+
+.rating-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rating-stars {
+  display: flex;
+  gap: 4px;
+}
+
+.star-large {
+  font-size: 20px;
+  color: #d9d9d9;
+}
+
+.star-large.filled {
+  color: #ff9800;
+}
+
+.rating-count {
+  font-size: 14px;
+  color: #666666;
+  font-family: Inter;
+}
+
 .view-all {
   font-size: 14px;
   color: #cb5747;
@@ -771,6 +874,21 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.empty-tip {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  width: 100%;
+}
+
+.empty-text {
+  font-size: 16px;
+  font-family: Inter;
+  color: #999999;
+  font-weight: 500;
 }
 
 .review-item {
@@ -789,7 +907,19 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 1px solid #e0e0e0;
+  background-color: #d03838;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.avatar-text-small {
+  color: #ffffff;
+  font-size: 14px;
+  font-family: Inter;
+  font-weight: 600;
+  line-height: 14px;
 }
 
 .review-content {
