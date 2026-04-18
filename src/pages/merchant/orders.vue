@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import StatusTag from '../../components/StatusTag.vue';
+import BackButton from '../../components/BackButton.vue';
 import { ElMessage } from 'element-plus';
 
 const router = useRouter();
@@ -142,6 +143,9 @@ const handleRefund = (approved) => {
     <div class="flex-row items-center self-stretch group">
       <img class="image" src="../../assets/logo.svg" />
       <span class="ml-10 text">校园二手交易平台 - 订单管理</span>
+    </div>
+    <div class="flex-row justify-start items-center self-start">
+      <BackButton />
     </div>
     
     <div class="orders-container">

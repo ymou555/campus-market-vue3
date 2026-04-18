@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import StatusTag from '../../components/StatusTag.vue';
+import BackButton from '../../components/BackButton.vue';
 import { ElMessage } from 'element-plus';
 
 const searchKeyword = ref('');
@@ -40,6 +41,9 @@ const toggleBan = (merchant) => {
     <div class="flex-row items-center self-stretch group">
       <img class="image" src="../../assets/logo.svg" />
       <span class="ml-10 text">校园二手交易平台 - 商家管理</span>
+    </div>
+    <div class="flex-row justify-start items-center self-start">
+      <BackButton />
     </div>
     
     <div class="merchants-container">

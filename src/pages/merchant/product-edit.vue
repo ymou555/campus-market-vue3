@@ -84,7 +84,7 @@ const handleSubmit = () => {
       <img class="image" src="../../assets/logo.svg" />
       <span class="ml-10 text">校园二手交易平台 - 编辑商品</span>
     </div>
-    <div class="flex-row justify-start items-center self-start mb-20">
+    <div class="flex-row justify-start items-center self-start">
       <BackButton />
     </div>
     
@@ -227,9 +227,6 @@ const handleSubmit = () => {
 </template>
 
 <style scoped lang="css">
-.mb-20 {
-  margin-bottom: 20px;
-}
 
 .page {
   padding: 0 30px 43px;

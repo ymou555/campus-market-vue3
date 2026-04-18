@@ -21,6 +21,7 @@ const todayStats = reactive({
 
 const quickActions = [
   { icon: '📦', title: '发布商品', path: '/merchant/product-publish' },
+  { icon: '🛍️', title: '商品管理', path: '/merchant/products' },
   { icon: '📋', title: '订单管理', path: '/merchant/orders' },
   { icon: '🏪', title: '店铺设置', path: '/merchant/shop-settings' }
 ];
@@ -187,7 +188,7 @@ const goTo = (path) => {
 
 .quick-actions {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 24px;
   padding-bottom: 24px;
