@@ -5,9 +5,11 @@ import BackButton from '../components/BackButton.vue';
 import StatusTag from '../components/StatusTag.vue';
 import axios from '../utils/axios';
 import { ElMessage } from 'element-plus';
+import { useUserStore } from '../store/user';
 
 const router = useRouter();
 const route = useRoute();
+const userStore = useUserStore();
 
 const product = reactive({
   id: null,
@@ -167,8 +169,36 @@ const toggleCollect = () => {
   ElMessage.success(isCollected.value ? '收藏成功' : '已取消收藏');
 };
 
-const addToCart = () => {
-  ElMessage.success('已加入购物车');
+const addToCart = async () => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录');
+    router.push('/login');
+    return;
+  }
+  
+  if (!userStore.userInfo || !userStore.userInfo.id) {
+    ElMessage.error('获取用户信息失败，请重新登录');
+    return;
+  }
+  
+  try {
+    const response = await axios.post('/cart/add', null, {
+      params: {
+        userId: userStore.userInfo.id,
+        productId: product.id,
+        quantity: quantity.value
+      }
+    });
+    
+    if (response && response.code === 200) {
+      ElMessage.success('已加入购物车');
+    } else {
+      ElMessage.error(response?.message || '加入购物车失败');
+    }
+  } catch (error) {
+    console.error('加入购物车失败:', error);
+    ElMessage.error('加入购物车失败，请稍后重试');
+  }
 };
 
 const buyNow = () => {

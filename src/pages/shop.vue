@@ -100,22 +100,22 @@ const fetchMerchantReviews = async () => {
 
 const getLevelText = (level) => {
   const levelMap = {
-    1: '初级商家',
-    2: '中级商家',
+    1: '钻石商家',
+    2: '金牌商家',
     3: '高级商家',
-    4: '金牌商家',
-    5: '钻石商家'
+    4: '中级商家',
+    5: '初级商家'
   };
   return levelMap[level] || '初级商家';
 };
 
 const getLevelColor = (level) => {
   const colorMap = {
-    1: '#999999',
-    2: '#666666',
+    1: '#00bcd4',
+    2: '#ffd700',
     3: '#ff9800',
-    4: '#ffd700',
-    5: '#00bcd4'
+    4: '#666666',
+    5: '#999999'
   };
   return colorMap[level] || '#999999';
 };
