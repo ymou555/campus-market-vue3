@@ -42,8 +42,34 @@
   };
 
   const productList = ref([]);
+  
+  const banners = ref([]);
 
   const router = useRouter();
+
+  const fetchBanners = async () => {
+    try {
+      const response = await axios.get('/banner/active');
+      if (response && response.code === 200) {
+        banners.value = response.data.map(item => ({
+          id: item.id,
+          bannerName: item.bannerName,
+          imageUrl: `http://localhost:8080/campus-market${item.imageUrl}`,
+          linkUrl: item.linkUrl
+        }));
+      }
+    } catch (error) {
+      console.error('获取轮播图失败:', error);
+    }
+  };
+
+  const handleBannerClick = (linkUrl) => {
+    if (linkUrl.startsWith('http')) {
+      window.open(linkUrl.trim(), '_blank');
+    } else {
+      router.push(linkUrl.trim());
+    }
+  };
 
   const fetchProducts = async (categoryId = null) => {
     try {
@@ -72,6 +98,7 @@
   onMounted(() => {
     fetchProducts();
     fetchCategories();
+    fetchBanners();
   });
 </script>
 
@@ -79,9 +106,13 @@
   <div class="flex-col page">
     <Navbar />
     
-    <el-carousel :interval="4000" type="card" height="250px" style="margin-top: 20px;">
-      <el-carousel-item v-for="item in 6" :key="item">
-        <h3 class="medium">{{ item }}</h3>
+    <el-carousel v-if="banners.length > 0" :interval="4000" type="card" height="250px" style="margin-top: 20px;">
+      <el-carousel-item v-for="banner in banners" :key="banner.id">
+        <img 
+          :src="banner.imageUrl" 
+          class="banner-image"
+          @click="banner.linkUrl && handleBannerClick(banner.linkUrl)"
+        />
       </el-carousel-item>
     </el-carousel>
     
@@ -184,12 +215,11 @@
     font-weight: 500;
   }
   /* 轮播图样式 */
-  .el-carousel__item h3 {
-    color: #475669;
-    font-size: 14px;
-    opacity: 0.75;
-    line-height: 200px;
-    margin: 0;
+  .banner-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
   }
   
   .el-carousel__item:nth-child(2n) {

@@ -22,6 +22,8 @@ export const useUserStore = defineStore('user', {
       this.isLoggedIn = false;
       localStorage.removeItem('token');
       localStorage.removeItem('userInfo');
+      localStorage.removeItem('historySearches');
+      sessionStorage.removeItem('searchKeyword');
     }
   }
 });

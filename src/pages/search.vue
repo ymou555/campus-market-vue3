@@ -1,10 +1,16 @@
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, onActivated } from 'vue';
 import { useRouter } from 'vue-router';
 import Navbar from '../components/Navbar.vue';
 import SearchBox from '../components/SearchBox.vue';
 import ProductCard from '../components/ProductCard.vue';
+import BackButton from '../components/BackButton.vue';
+import axios from '../utils/axios';
 import { ElMessage } from 'element-plus';
+
+defineOptions({
+  name: 'SearchView'
+});
 
 const router = useRouter();
 
@@ -17,56 +23,168 @@ const priceRange = reactive({
 const selectedCondition = ref('');
 const sortBy = ref('default');
 
-const categoryOptions = [
-  { value: 'electronics', label: '电子产品' },
-  { value: 'clothing', label: '服装' },
-  { value: 'books', label: '图书' },
-  { value: 'sports', label: '运动器材' },
-  { value: 'furniture', label: '家具' },
-  { value: 'other', label: '其他' }
-];
+const options = ref([]);
+
+const cascaderProps = {
+  expandTrigger: 'hover'
+};
+
+const fetchCategories = async () => {
+  try {
+    const response = await axios.get('/product/categories');
+    if (response && response.code === 200) {
+      options.value = response.data;
+    } else {
+      ElMessage.error(response?.message || '获取分类失败');
+    }
+  } catch (error) {
+    console.error('获取分类失败:', error);
+    ElMessage.error('获取分类失败，请稍后重试');
+  }
+};
+
+const handleCategoryChange = (value) => {
+  console.log('选中的分类:', value);
+};
 
 const conditionOptions = [
   { value: 'new', label: '全新' },
-  { value: 'almost-new', label: '几乎全新' },
+  { value: 'like_new', label: '几乎全新' },
   { value: 'good', label: '良好' },
   { value: 'fair', label: '一般' }
 ];
 
 const sortOptions = [
   { value: 'default', label: '默认排序' },
-  { value: 'price-asc', label: '价格从低到高' },
-  { value: 'price-desc', label: '价格从高到低' },
-  { value: 'time-desc', label: '最新发布' }
+  { value: 'price_asc', label: '价格从低到高' },
+  { value: 'price_desc', label: '价格从高到低' },
+  { value: 'sales', label: '销量从高到低' },
+  { value: 'rating', label: '好评率从高到低' }
 ];
 
-const searchResults = ref([
-  { id: 1, name: 'iPhone 13 Pro', price: 5999, originalPrice: 7999, merchant: '数码小店', image: 'https://via.placeholder.com/200', condition: 'almost-new' },
-  { id: 2, name: 'MacBook Pro 2021', price: 12999, originalPrice: 14999, merchant: '苹果专卖店', image: 'https://via.placeholder.com/200', condition: 'new' },
-  { id: 3, name: '机械键盘', price: 299, originalPrice: 499, merchant: '外设天地', image: 'https://via.placeholder.com/200', condition: 'good' },
-  { id: 4, name: '运动跑鞋', price: 199, originalPrice: 399, merchant: '运动装备', image: 'https://via.placeholder.com/200', condition: 'fair' },
-  { id: 5, name: '编程书籍合集', price: 89, originalPrice: 199, merchant: '书香阁', image: 'https://via.placeholder.com/200', condition: 'good' },
-  { id: 6, name: '二手自行车', price: 450, originalPrice: 800, merchant: '单车世界', image: 'https://via.placeholder.com/200', condition: 'good' }
-]);
+const searchResults = ref([]);
+const loading = ref(false);
 
-const historySearches = ref(['iPhone', 'MacBook', '机械键盘', '运动鞋', '编程书籍']);
+const formatProductData = (product) => {
+  return {
+    id: product.id,
+    name: product.productName || '未知商品',
+    price: product.discountPrice || product.originalPrice || 0,
+    originalPrice: product.originalPrice || 0,
+    merchant: product.merchantName || '未知商家',
+    image: product.firstImage ? `http://localhost:8080/campus-market${product.firstImage}` : ''
+  };
+};
+
+const searchProducts = async () => {
+  loading.value = true;
+  try {
+    const params = {};
+    
+    if (searchValue.value) {
+      params.keyword = searchValue.value;
+    }
+    
+    if (selectedCategories.value && selectedCategories.value.length > 0) {
+      params.categoryId = selectedCategories.value[selectedCategories.value.length - 1];
+    }
+    
+    if (sortBy.value && sortBy.value !== 'default') {
+      params.sortBy = sortBy.value;
+    }
+    
+    if (priceRange.min) {
+      params.minPrice = parseFloat(priceRange.min);
+    }
+    
+    if (priceRange.max) {
+      params.maxPrice = parseFloat(priceRange.max);
+    }
+    
+    if (selectedCondition.value) {
+      params.newness = selectedCondition.value;
+    }
+    
+    const response = await axios.get('/product/search', { params });
+    
+    if (response && response.code === 200) {
+      const rawData = response.data || [];
+      searchResults.value = rawData.map(formatProductData);
+    } else {
+      ElMessage.error(response?.message || '搜索失败');
+      searchResults.value = [];
+    }
+  } catch (error) {
+    console.error('搜索失败:', error);
+    ElMessage.error('搜索失败，请稍后重试');
+    searchResults.value = [];
+  } finally {
+    loading.value = false;
+  }
+};
+
+const historySearches = ref([]);
+
+const loadHistorySearches = () => {
+  try {
+    const saved = localStorage.getItem('historySearches');
+    if (saved) {
+      historySearches.value = JSON.parse(saved);
+    } else {
+      historySearches.value = [];
+    }
+  } catch (e) {
+    console.error('读取历史搜索记录失败:', e);
+    historySearches.value = [];
+  }
+};
+
+const saveHistorySearches = () => {
+  try {
+    localStorage.setItem('historySearches', JSON.stringify(historySearches.value));
+  } catch (e) {
+    console.error('保存历史搜索记录失败:', e);
+  }
+};
+
+const addHistorySearch = (keyword) => {
+  if (!keyword || !keyword.trim()) return;
+  
+  const trimmedKeyword = keyword.trim();
+  
+  const existingIndex = historySearches.value.indexOf(trimmedKeyword);
+  if (existingIndex !== -1) {
+    historySearches.value.splice(existingIndex, 1);
+  }
+  
+  historySearches.value.unshift(trimmedKeyword);
+  
+  if (historySearches.value.length > 10) {
+    historySearches.value = historySearches.value.slice(0, 10);
+  }
+  
+  saveHistorySearches();
+};
 
 const handleSearch = (keyword) => {
   searchValue.value = keyword;
-  ElMessage.success(`搜索关键词: ${keyword || '全部商品'}`);
+  addHistorySearch(keyword);
+  searchProducts();
 };
 
 const clearHistory = () => {
   historySearches.value = [];
+  localStorage.removeItem('historySearches');
   ElMessage.success('历史记录已清空');
 };
 
 const handleHistoryClick = (keyword) => {
   searchValue.value = keyword;
-  handleSearch(keyword);
+  searchProducts();
 };
 
 const applyFilters = () => {
+  searchProducts();
   ElMessage.success('筛选条件已应用');
 };
 
@@ -76,20 +194,71 @@ const resetFilters = () => {
   priceRange.max = '';
   selectedCondition.value = '';
   sortBy.value = 'default';
+  searchProducts();
   ElMessage.success('筛选条件已重置');
 };
 
 const goToProductDetail = (productId) => {
   router.push(`/product/${productId}`);
 };
+
+const handleSearchTriggered = () => {
+  const keyword = sessionStorage.getItem('searchKeyword') || '';
+  if (keyword) {
+    searchValue.value = keyword;
+    sessionStorage.removeItem('searchKeyword');
+    addHistorySearch(keyword);
+    searchProducts();
+  }
+};
+
+const handleUserLogout = () => {
+  historySearches.value = [];
+};
+
+onMounted(() => {
+  fetchCategories();
+  loadHistorySearches();
+  
+  const keyword = sessionStorage.getItem('searchKeyword') || '';
+  if (keyword) {
+    searchValue.value = keyword;
+    sessionStorage.removeItem('searchKeyword');
+    addHistorySearch(keyword);
+  }
+  searchProducts();
+  
+  window.addEventListener('search-triggered', handleSearchTriggered);
+  window.addEventListener('user-logout', handleUserLogout);
+});
+
+onActivated(() => {
+  loadHistorySearches();
+  
+  const keyword = sessionStorage.getItem('searchKeyword') || '';
+  if (keyword) {
+    searchValue.value = keyword;
+    sessionStorage.removeItem('searchKeyword');
+    addHistorySearch(keyword);
+    searchProducts();
+  }
+});
+
+onUnmounted(() => {
+  window.removeEventListener('search-triggered', handleSearchTriggered);
+  window.removeEventListener('user-logout', handleUserLogout);
+});
 </script>
 
 <template>
   <div class="flex-col page">
     <Navbar />
+    <div class="flex-row justify-start items-center self-start">
+      <BackButton />
+    </div>
     
     <div class="search-container">
-      <SearchBox @search="handleSearch" />
+      <SearchBox v-model="searchValue" @search="handleSearch" />
       
       <div class="history-section" v-if="historySearches.length > 0">
         <div class="history-header">
@@ -112,20 +281,15 @@ const goToProductDetail = (productId) => {
         <div class="filter-row">
           <div class="filter-item">
             <span class="filter-label">商品分类</span>
-            <el-select 
+            <el-cascader 
               v-model="selectedCategories" 
-              multiple 
-              collapse-tags 
-              placeholder="请选择分类" 
-              class="filter-select"
-            >
-              <el-option
-                v-for="item in categoryOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value">
-              </el-option>
-            </el-select>
+              :options="options" 
+              :props="cascaderProps" 
+              @change="handleCategoryChange"
+              placeholder="请选择商品分类"
+              class="category-cascader"
+              clearable
+            />
           </div>
           
           <div class="filter-item">
@@ -194,7 +358,15 @@ const goToProductDetail = (productId) => {
           <span class="results-count">找到 {{ searchResults.length }} 个商品</span>
         </div>
         
-        <div class="products-grid">
+        <div v-if="loading" class="loading-container">
+          <span class="loading-text">搜索中...</span>
+        </div>
+        
+        <div v-else-if="searchResults.length === 0" class="empty-container">
+          <span class="empty-text">暂无搜索结果</span>
+        </div>
+        
+        <div v-else class="products-grid">
           <div 
             v-for="product in searchResults" 
             :key="product.id"
@@ -315,6 +487,40 @@ const goToProductDetail = (productId) => {
   width: 200px;
 }
 
+.category-cascader {
+  width: 200px;
+}
+
+::v-deep(.category-cascader) {
+  --el-border-radius-base: 30px !important;
+  width: 200px;
+}
+
+::v-deep(.category-cascader .el-input__wrapper) {
+  height: 32px !important;
+  border-radius: 30px !important;
+  box-shadow: none !important;
+  border: solid 1px #d9d9d9 !important;
+  padding: 0 15px !important;
+  width: 200px;
+}
+
+::v-deep(.category-cascader .el-input__inner) {
+  padding-left: 5px !important;
+}
+
+::v-deep(.category-cascader .el-input__wrapper:hover) {
+  box-shadow: none !important;
+  border-color: #cb5747 !important;
+  box-shadow: 0px 0px 4px rgba(203, 87, 71, 0.3) !important;
+}
+
+::v-deep(.category-cascader .el-input__wrapper.is-focus) {
+  box-shadow: none !important;
+  border-color: #cb5747 !important;
+  box-shadow: 0px 0px 6px rgba(203, 87, 71, 0.5) !important;
+}
+
 ::v-deep(.filter-select .el-select__wrapper) {
   border-radius: 100px !important;
   box-shadow: none !important;
@@ -418,6 +624,21 @@ const goToProductDetail = (productId) => {
   font-size: 14px;
   font-family: Inter;
   color: #666666;
+}
+
+.loading-container,
+.empty-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 0;
+}
+
+.loading-text,
+.empty-text {
+  font-size: 16px;
+  font-family: Inter;
+  color: #999999;
 }
 
 .products-grid {

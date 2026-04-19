@@ -1,9 +1,24 @@
 <script setup>
-import { ref, defineEmits } from 'vue';
+import { ref, watch } from 'vue';
 
-const emit = defineEmits(['search']);
+const props = defineProps({
+  modelValue: {
+    type: String,
+    default: ''
+  }
+});
 
-const searchValue = ref('');
+const emit = defineEmits(['search', 'update:modelValue']);
+
+const searchValue = ref(props.modelValue);
+
+watch(() => props.modelValue, (newVal) => {
+  searchValue.value = newVal;
+});
+
+watch(searchValue, (newVal) => {
+  emit('update:modelValue', newVal);
+});
 
 const handleSearch = () => {
   emit('search', searchValue.value);
