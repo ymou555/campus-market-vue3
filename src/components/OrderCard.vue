@@ -13,15 +13,30 @@ const emit = defineEmits(['view', 'pay', 'cancel', 'confirm', 'review', 'refund'
 
 const getStatusType = (status) => {
   const statusMap = {
-    '待付款': 'warning',
-    '待发货': 'info',
-    '待收货': 'info',
-    '待评价': 'success',
-    '已完成': 'success',
-    '已取消': 'default',
-    '售后中': 'danger'
+    'pending': 'warning',
+    'bargaining': 'info',
+    'paid': 'info',
+    'shipped': 'info',
+    'received': 'success',
+    'completed': 'success',
+    'refunded': 'danger',
+    'cancelled': 'default'
   };
   return statusMap[status] || 'default';
+};
+
+const getStatusText = (status) => {
+  const statusTextMap = {
+    'pending': '待付款',
+    'bargaining': '议价中',
+    'paid': '待发货',
+    'shipped': '待收货',
+    'received': '待评价',
+    'completed': '已完成',
+    'refunded': '已退款',
+    'cancelled': '已取消'
+  };
+  return statusTextMap[status] || status;
 };
 
 const handleView = () => {
@@ -53,17 +68,17 @@ const handleRefund = () => {
   <div class="order-card">
     <div class="order-header">
       <div class="order-info">
-        <span class="order-number">订单号: {{ order.orderNumber }}</span>
-        <StatusTag :status="getStatusType(order.status)" :text="order.status" />
+        <span class="order-number">订单号: {{ order.orderNo }}</span>
+        <StatusTag :status="getStatusType(order.status)" :text="getStatusText(order.status)" />
       </div>
       <span class="order-date">{{ order.createTime }}</span>
     </div>
     
     <div class="order-products">
       <div v-for="product in order.products" :key="product.id" class="product-item">
-        <img :src="product.image" class="product-image" />
+        <img :src="'http://localhost:8080/campus-market' + product.productImage" class="product-image" />
         <div class="product-info">
-          <div class="product-name">{{ product.name }}</div>
+          <div class="product-name">{{ product.productName }}</div>
           <div class="product-price">¥{{ product.price }} x {{ product.quantity }}</div>
         </div>
       </div>
@@ -75,11 +90,11 @@ const handleRefund = () => {
       </div>
       <div class="order-actions">
         <button class="action-btn view-btn" @click="handleView">查看详情</button>
-        <button v-if="order.status === '待付款'" class="action-btn cancel-btn" @click="handleCancel">取消订单</button>
-        <button v-if="order.status === '待付款'" class="action-btn primary-btn" @click="handlePay">立即付款</button>
-        <button v-if="order.status === '待收货'" class="action-btn primary-btn" @click="handleConfirm">确认收货</button>
-        <button v-if="order.status === '待评价'" class="action-btn primary-btn" @click="handleReview">去评价</button>
-        <button v-if="order.status === '已完成'" class="action-btn" @click="handleRefund">申请售后</button>
+        <button v-if="order.status === 'pending'" class="action-btn cancel-btn" @click="handleCancel">取消订单</button>
+        <button v-if="order.status === 'pending'" class="action-btn primary-btn" @click="handlePay">立即付款</button>
+        <button v-if="order.status === 'shipped'" class="action-btn primary-btn" @click="handleConfirm">确认收货</button>
+        <button v-if="order.status === 'received'" class="action-btn primary-btn" @click="handleReview">去评价</button>
+        <button v-if="order.status === 'completed'" class="action-btn" @click="handleRefund">申请售后</button>
       </div>
     </div>
   </div>

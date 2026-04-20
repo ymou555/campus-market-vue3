@@ -1,97 +1,73 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import Navbar from '../components/Navbar.vue';
 import OrderCard from '../components/OrderCard.vue';
 import BackButton from '../components/BackButton.vue';
 import { ElMessage } from 'element-plus';
+import axios from '../utils/axios';
+import { useUserStore } from '../store/user';
 
 const router = useRouter();
+const userStore = useUserStore();
 
 const currentTab = ref('all');
 
 const tabs = [
   { value: 'all', label: '全部' },
-  { value: 'pending-payment', label: '待付款' },
-  { value: 'pending-shipment', label: '待发货' },
-  { value: 'pending-receipt', label: '待收货' },
-  { value: 'pending-review', label: '待评价' },
-  { value: 'after-sale', label: '售后' }
+  { value: 'pending', label: '待付款' },
+  { value: 'bargaining', label: '议价中' },
+  { value: 'paid', label: '待发货' },
+  { value: 'shipped', label: '待收货' },
+  { value: 'received', label: '待评价' }
 ];
 
-const orders = ref([
-  {
-    id: 1,
-    orderNumber: '202401150001',
-    status: '待付款',
-    createTime: '2024-01-15 10:30:00',
-    totalQuantity: 2,
-    totalAmount: 8597,
-    products: [
-      { id: 1, name: 'iPhone 13 Pro', price: 5999, quantity: 1, image: 'https://via.placeholder.com/80' },
-      { id: 2, name: 'AirPods Pro', price: 1299, quantity: 2, image: 'https://via.placeholder.com/80' }
-    ]
-  },
-  {
-    id: 2,
-    orderNumber: '202401140002',
-    status: '待发货',
-    createTime: '2024-01-14 15:20:00',
-    totalQuantity: 1,
-    totalAmount: 199,
-    products: [
-      { id: 3, name: '运动跑鞋', price: 199, quantity: 1, image: 'https://via.placeholder.com/80' }
-    ]
-  },
-  {
-    id: 3,
-    orderNumber: '202401130003',
-    status: '待收货',
-    createTime: '2024-01-13 09:15:00',
-    totalQuantity: 1,
-    totalAmount: 299,
-    products: [
-      { id: 4, name: '机械键盘', price: 299, quantity: 1, image: 'https://via.placeholder.com/80' }
-    ]
-  },
-  {
-    id: 4,
-    orderNumber: '202401120004',
-    status: '待评价',
-    createTime: '2024-01-12 14:30:00',
-    totalQuantity: 1,
-    totalAmount: 89,
-    products: [
-      { id: 5, name: '编程书籍合集', price: 89, quantity: 1, image: 'https://via.placeholder.com/80' }
-    ]
-  },
-  {
-    id: 5,
-    orderNumber: '202401110005',
-    status: '已完成',
-    createTime: '2024-01-11 11:00:00',
-    totalQuantity: 1,
-    totalAmount: 450,
-    products: [
-      { id: 6, name: '二手自行车', price: 450, quantity: 1, image: 'https://via.placeholder.com/80' }
-    ]
+const orders = ref([]);
+
+const fetchOrders = async (status = null) => {
+  if (!userStore.isLoggedIn || !userStore.userInfo || !userStore.userInfo.id) {
+    ElMessage.warning('请先登录');
+    return;
   }
-]);
+  
+  try {
+    const params = {
+      userId: userStore.userInfo.id
+    };
+    
+    if (status && status !== 'all') {
+      params.status = status;
+    }
+    
+    const response = await axios.get('/order/user/list', {
+      params: params
+    });
+    
+    if (response && response.code === 200) {
+      orders.value = response.data || [];
+    } else {
+      ElMessage.error(response?.message || '获取订单列表失败');
+    }
+  } catch (error) {
+    console.error('获取订单列表失败:', error);
+    ElMessage.error('获取订单列表失败，请稍后重试');
+  }
+};
 
 const handleView = (order) => {
   router.push(`/order/${order.id}`);
 };
 
 const handlePay = (order) => {
-  ElMessage.success(`订单 ${order.orderNumber} 跳转到支付页面`);
+  ElMessage.success(`订单 ${order.orderNo} 跳转到支付页面`);
 };
 
 const handleCancel = (order) => {
-  ElMessage.success(`订单 ${order.orderNumber} 已取消`);
+  ElMessage.success(`订单 ${order.orderNo} 已取消`);
 };
 
 const handleConfirm = (order) => {
-  ElMessage.success(`订单 ${order.orderNumber} 已确认收货`);
+  ElMessage.success(`订单 ${order.orderNo} 已确认收货`);
 };
 
 const handleReview = (order) => {
@@ -99,12 +75,17 @@ const handleReview = (order) => {
 };
 
 const handleRefund = (order) => {
-  ElMessage.success(`订单 ${order.orderNumber} 申请售后成功`);
+  ElMessage.success(`订单 ${order.orderNo} 申请售后成功`);
 };
 
 const changeTab = (tab) => {
   currentTab.value = tab;
+  fetchOrders(tab);
 };
+
+onMounted(() => {
+  fetchOrders(currentTab.value);
+});
 </script>
 
 <template>
@@ -128,6 +109,10 @@ const changeTab = (tab) => {
       </div>
       
       <div class="orders-list">
+        <div v-if="orders.length === 0" class="empty-state">
+          <div class="empty-icon">📦</div>
+          <div class="empty-text">暂无订单</div>
+        </div>
         <OrderCard 
           v-for="order in orders" 
           :key="order.id"
@@ -199,5 +184,26 @@ const changeTab = (tab) => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #999999;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 16px;
+  font-family: Inter;
+  color: #999999;
 }
 </style>
