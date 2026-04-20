@@ -3,6 +3,7 @@ import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import Navbar from '../components/Navbar.vue';
 import UploadImage from '../components/UploadImage.vue';
+import BackButton from '../components/BackButton.vue';
 import { ElMessage } from 'element-plus';
 
 const router = useRouter();
@@ -92,6 +93,9 @@ const editReview = (review) => {
 <template>
   <div class="flex-col page">
     <Navbar />
+    <div class="flex-row justify-start items-center self-start mt-20">
+      <BackButton />
+    </div>
     
     <div class="reviews-container">
       <div class="tabs-wrapper">

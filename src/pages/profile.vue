@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import Navbar from '../components/Navbar.vue';
 import DataCard from '../components/DataCard.vue';
 import FormInput from '../components/FormInput.vue';
+import BackButton from '../components/BackButton.vue';
 import { ElMessage } from 'element-plus';
 
 const router = useRouter();
@@ -119,6 +120,9 @@ const changePassword = () => {
 <template>
   <div class="flex-col page">
     <Navbar />
+    <div class="flex-row justify-start items-center self-start mt-20">
+      <BackButton />
+    </div>
     
     <div class="profile-container">
       <div class="user-section">

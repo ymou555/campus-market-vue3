@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import Navbar from '../components/Navbar.vue';
 import OrderCard from '../components/OrderCard.vue';
+import BackButton from '../components/BackButton.vue';
 import { ElMessage } from 'element-plus';
 
 const router = useRouter();
@@ -109,6 +110,9 @@ const changeTab = (tab) => {
 <template>
   <div class="flex-col page">
     <Navbar />
+    <div class="flex-row justify-start items-center self-start mt-20">
+      <BackButton />
+    </div>
     
     <div class="orders-container">
       <div class="tabs-wrapper">

@@ -1,18 +1,76 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import Navbar from '../components/Navbar.vue';
+import BackButton from '../components/BackButton.vue';
+import { ElMessage } from 'element-plus';
+import axios from '../utils/axios';
+import { useUserStore } from '../store/user';
 
 const router = useRouter();
+const userStore = useUserStore();
 
-const points = ref(1500);
-const transactions = ref([
-  { id: 1, type: 'earn', amount: 100, balance: 1500, time: '2024-01-15 10:30:00', desc: '购物奖励' },
-  { id: 2, type: 'use', amount: -50, balance: 1400, time: '2024-01-14 15:20:00', desc: '订单抵扣' },
-  { id: 3, type: 'earn', amount: 200, balance: 1450, time: '2024-01-13 09:15:00', desc: '评价奖励' },
-  { id: 4, type: 'expire', amount: -30, balance: 1250, time: '2024-01-12 14:30:00', desc: '积分过期' },
-  { id: 5, type: 'earn', amount: 150, balance: 1280, time: '2024-01-11 11:00:00', desc: '签到奖励' }
-]);
+const points = ref(0);
+const transactions = ref([]);
+
+const fetchPointsTotal = async () => {
+  if (!userStore.isLoggedIn || !userStore.userInfo || !userStore.userInfo.id) {
+    ElMessage.warning('请先登录');
+    return;
+  }
+  
+  try {
+    const response = await axios.get('/points/total', {
+      params: {
+        userId: userStore.userInfo.id
+      }
+    });
+    
+    if (response && response.code === 200) {
+      points.value = response.totalPoints;
+    } else {
+      ElMessage.error(response?.message || '获取积分失败');
+    }
+  } catch (error) {
+    console.error('获取积分失败:', error);
+    ElMessage.error('获取积分失败，请稍后重试');
+  }
+};
+
+const fetchPointsRecords = async () => {
+  if (!userStore.isLoggedIn || !userStore.userInfo || !userStore.userInfo.id) {
+    return;
+  }
+  
+  try {
+    const response = await axios.get('/points/records', {
+      params: {
+        userId: userStore.userInfo.id
+      }
+    });
+    
+    if (response && response.code === 200 && response.data) {
+      // 转换数据格式
+      transactions.value = response.data.map(item => ({
+        id: item.id,
+        type: item.type,
+        amount: item.type === 'earn' ? item.points : -item.points,
+        time: item.createTime,
+        desc: item.remark
+      }));
+    } else {
+      ElMessage.error(response?.message || '获取交易记录失败');
+    }
+  } catch (error) {
+    console.error('获取交易记录失败:', error);
+    ElMessage.error('获取交易记录失败，请稍后重试');
+  }
+};
+
+onMounted(() => {
+  fetchPointsTotal();
+  fetchPointsRecords();
+});
 
 const rules = [
   { title: '获取规则', items: ['购物满1元获得1积分', '评价商品获得10-50积分', '每日签到获得10积分', '邀请好友获得100积分'] },
@@ -22,7 +80,7 @@ const rules = [
 const getTypeText = (type) => {
   const typeMap = {
     'earn': '获取',
-    'use': '使用',
+    'deduct': '使用',
     'expire': '过期'
   };
   return typeMap[type] || '其他';
@@ -31,7 +89,7 @@ const getTypeText = (type) => {
 const getTypeClass = (type) => {
   const classMap = {
     'earn': 'type-earn',
-    'use': 'type-use',
+    'deduct': 'type-use',
     'expire': 'type-expire'
   };
   return classMap[type] || '';
@@ -41,6 +99,9 @@ const getTypeClass = (type) => {
 <template>
   <div class="flex-col page">
     <Navbar />
+    <div class="flex-row justify-start items-center self-start mt-20">
+      <BackButton />
+    </div>
     
     <div class="points-container">
       <div class="points-section">
@@ -70,7 +131,6 @@ const getTypeClass = (type) => {
               <div class="transaction-amount" :class="getTypeClass(transaction.type)">
                 {{ transaction.amount > 0 ? '+' : '' }}{{ transaction.amount }}
               </div>
-              <div class="transaction-balance">余额: {{ transaction.balance }}</div>
             </div>
           </div>
         </div>

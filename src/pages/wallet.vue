@@ -1,25 +1,71 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import Navbar from '../components/Navbar.vue';
 import BackButton from '../components/BackButton.vue';
 import { ElMessage } from 'element-plus';
+import axios from '../utils/axios';
+import { useUserStore } from '../store/user';
 
 const router = useRouter();
+const userStore = useUserStore();
 
-const balance = ref(1250.50);
-const transactions = ref([
-  { id: 1, type: 'recharge', amount: 500, balance: 1250.50, time: '2024-01-15 10:30:00', desc: '账户充值' },
-  { id: 2, type: 'consume', amount: -199, balance: 750.50, time: '2024-01-14 15:20:00', desc: '购买商品-运动跑鞋' },
-  { id: 3, type: 'refund', amount: 89, balance: 949.50, time: '2024-01-13 09:15:00', desc: '订单退款-编程书籍' },
-  { id: 4, type: 'consume', amount: -299, balance: 860.50, time: '2024-01-12 14:30:00', desc: '购买商品-机械键盘' },
-  { id: 5, type: 'recharge', amount: 300, balance: 1159.50, time: '2024-01-11 11:00:00', desc: '账户充值' }
-]);
+const balance = ref(0);
+const lastUpdateTime = ref('');
+const transactions = ref([]);
+
+const fetchWalletInfo = async () => {
+  if (!userStore.isLoggedIn || !userStore.userInfo || !userStore.userInfo.id) {
+    ElMessage.warning('请先登录');
+    return;
+  }
+  
+  try {
+    const response = await axios.get('/wallet/info', {
+      params: {
+        userId: userStore.userInfo.id
+      }
+    });
+    
+    if (response && response.code === 200 && response.wallet) {
+      balance.value = response.wallet.balance;
+      lastUpdateTime.value = response.wallet.lastUpdateTime;
+    } else {
+      ElMessage.error(response?.message || '获取钱包信息失败');
+    }
+  } catch (error) {
+    console.error('获取钱包信息失败:', error);
+    ElMessage.error('获取钱包信息失败，请稍后重试');
+  }
+};
+
+const fetchTransactions = async () => {
+  if (!userStore.isLoggedIn || !userStore.userInfo || !userStore.userInfo.id) {
+    return;
+  }
+  
+  try {
+    const response = await axios.get('/wallet/transactions', {
+      params: {
+        userId: userStore.userInfo.id
+      }
+    });
+    
+    if (response && response.code === 200) {
+      transactions.value = response.data || [];
+    } else {
+      ElMessage.error(response?.message || '获取交易记录失败');
+    }
+  } catch (error) {
+    console.error('获取交易记录失败:', error);
+    ElMessage.error('获取交易记录失败，请稍后重试');
+  }
+};
 
 const getTypeText = (type) => {
   const typeMap = {
-    'recharge': '充值',
-    'consume': '消费',
+    'deposit': '充值',
+    'payment': '支付',
     'refund': '退款'
   };
   return typeMap[type] || '其他';
@@ -27,27 +73,30 @@ const getTypeText = (type) => {
 
 const getTypeClass = (type) => {
   const classMap = {
-    'recharge': 'type-recharge',
-    'consume': 'type-consume',
+    'deposit': 'type-recharge',
+    'payment': 'type-consume',
     'refund': 'type-refund'
   };
   return classMap[type] || '';
 };
 
-const handleRecharge = () => {
-  ElMessage.info('充值功能仅管理员可见');
-};
+onMounted(() => {
+  fetchWalletInfo();
+  fetchTransactions();
+});
 </script>
 
 <template>
   <div class="flex-col page">
     <Navbar />
+    <div class="flex-row justify-start items-center self-start mt-20">
+      <BackButton />
+    </div>
     
     <div class="wallet-container">
       <div class="balance-section">
         <div class="balance-label">账户余额</div>
         <div class="balance-amount">¥{{ balance.toFixed(2) }}</div>
-        <button class="recharge-btn" @click="handleRecharge">充值</button>
       </div>
       
       <div class="transactions-section">
@@ -55,14 +104,13 @@ const handleRecharge = () => {
         <div class="transaction-list">
           <div v-for="transaction in transactions" :key="transaction.id" class="transaction-item">
             <div class="transaction-info">
-              <div class="transaction-desc">{{ transaction.desc }}</div>
-              <div class="transaction-time">{{ transaction.time }}</div>
+              <div class="transaction-desc">{{ transaction.remark }}</div>
+              <div class="transaction-time">{{ transaction.transactionTime }}</div>
             </div>
             <div class="transaction-right">
               <div class="transaction-amount" :class="getTypeClass(transaction.type)">
-                {{ transaction.amount > 0 ? '+' : '' }}{{ transaction.amount.toFixed(2) }}
+                {{ (transaction.type === 'deposit' || transaction.type === 'refund') ? '+' : (transaction.type === 'payment' ? '-' : '') }}{{ transaction.amount.toFixed(2) }}
               </div>
-              <div class="transaction-balance">余额: ¥{{ transaction.balance.toFixed(2) }}</div>
             </div>
           </div>
         </div>
@@ -114,24 +162,6 @@ const handleRecharge = () => {
   font-weight: 700;
   color: #ffffff;
   margin-bottom: 24px;
-}
-
-.recharge-btn {
-  padding: 12px 48px;
-  background-color: #ffffff;
-  border: none;
-  border-radius: 100px;
-  color: #cb5747;
-  font-size: 16px;
-  font-family: Inter;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.recharge-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .section-title {
@@ -200,11 +230,5 @@ const handleRecharge = () => {
 
 .transaction-amount.type-refund {
   color: #2196f3;
-}
-
-.transaction-balance {
-  font-size: 12px;
-  font-family: Inter;
-  color: #999999;
 }
 </style>
