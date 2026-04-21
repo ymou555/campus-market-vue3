@@ -1,6 +1,6 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import BackButton from '../components/BackButton.vue';
 import FormInput from '../components/FormInput.vue';
 import { ElMessage } from 'element-plus';
@@ -8,6 +8,7 @@ import axios from '../utils/axios';
 import { useUserStore } from '../store/user';
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 
 const deliveryType = ref('face_to_face');
@@ -38,11 +39,43 @@ const fetchCartItems = async () => {
   }
 };
 
-const addresses = ref([
-  { id: 1, name: '张三', phone: '13800138000', address: '北京市朝阳区某某街道某某小区1号楼101室' }
-]);
+const fetchBuyNowProduct = async (productId, quantity) => {
+  try {
+    const response = await axios.get(`/product/detail?id=${productId}`);
+    if (response && response.code === 200) {
+      const productData = response.product;
+      const productImage = response.images && response.images.length > 0 
+        ? response.images[0].imageUrl 
+        : '/images/products/default.jpg';
+      
+      const merchantResponse = await axios.get(`/merchant/stats?productId=${productId}`);
+      let merchantName = '商家';
+      
+      if (merchantResponse && merchantResponse.code === 200) {
+        merchantName = merchantResponse.data.shopName || '商家';
+      }
+      
+      selectedProducts.value = [{
+        cartId: null,
+        productId: productData.id,
+        productName: productData.productName,
+        productImage: productImage,
+        price: productData.discountPrice,
+        quantity: parseInt(quantity),
+        merchantId: productData.userId,
+        merchantName: merchantName
+      }];
+    } else {
+      ElMessage.error(response?.message || '获取商品详情失败');
+    }
+  } catch (error) {
+    console.error('获取商品详情失败:', error);
+    ElMessage.error('获取商品详情失败，请稍后重试');
+  }
+};
 
-const selectedAddress = ref(1);
+const addresses = ref([]);
+const selectedAddress = ref(null);
 const showAddressDialog = ref(false);
 
 const newAddress = reactive({
@@ -55,6 +88,32 @@ const userPoints = ref(0);
 const usePoints = ref(0);
 const pointsToMoney = 100;
 const orderRemark = ref('');
+
+const fetchLastAddress = async () => {
+  if (!userStore.isLoggedIn || !userStore.userInfo || !userStore.userInfo.id) {
+    return;
+  }
+  
+  try {
+    const response = await axios.get('/order/last-address', {
+      params: {
+        userId: userStore.userInfo.id
+      }
+    });
+    
+    if (response && response.code === 200 && response.data) {
+      addresses.value = [{
+        id: 1,
+        name: response.data.receiverName,
+        phone: response.data.receiverPhone,
+        address: response.data.receiverAddress
+      }];
+      selectedAddress.value = 1;
+    }
+  } catch (error) {
+    console.error('获取上次使用地址失败:', error);
+  }
+};
 
 const fetchUserPoints = async () => {
   if (!userStore.isLoggedIn || !userStore.userInfo || !userStore.userInfo.id) {
@@ -121,6 +180,8 @@ const addNewAddress = () => {
     ...newAddress
   });
   
+  selectedAddress.value = addresses.value[addresses.value.length - 1].id;
+  
   newAddress.name = '';
   newAddress.phone = '';
   newAddress.address = '';
@@ -135,11 +196,15 @@ const submitOrder = async () => {
   }
   
   if (selectedProducts.value.length === 0) {
-    ElMessage.error('购物车中没有商品');
+    ElMessage.error('没有选择商品');
     return;
   }
   
   if (deliveryType.value === 'express') {
+    if (addresses.value.length === 0) {
+      ElMessage.error('请先添加收货地址');
+      return;
+    }
     const address = addresses.value.find(a => a.id === selectedAddress.value);
     if (!address) {
       ElMessage.error('请选择收货地址');
@@ -164,6 +229,13 @@ const submitOrder = async () => {
       params.append('remark', orderRemark.value);
     }
     
+    const { productId, quantity } = route.query;
+    
+    if (productId && quantity) {
+      params.append('productId', productId);
+      params.append('quantity', quantity);
+    }
+    
     const response = await axios.post('/order/create', params, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -185,7 +257,15 @@ const submitOrder = async () => {
 };
 
 onMounted(() => {
-  fetchCartItems();
+  const { productId, quantity } = route.query;
+  
+  if (productId && quantity) {
+    fetchBuyNowProduct(productId, quantity);
+  } else {
+    fetchCartItems();
+  }
+  
+  fetchLastAddress();
   fetchUserPoints();
 });
 </script>
@@ -235,7 +315,7 @@ onMounted(() => {
       
       <div v-if="deliveryType === 'express'" class="section">
         <h3 class="section-title">收货地址</h3>
-        <div class="address-list">
+        <div v-if="addresses.length > 0" class="address-list">
           <div 
             v-for="address in addresses" 
             :key="address.id"

@@ -202,8 +202,19 @@ const addToCart = async () => {
 };
 
 const buyNow = () => {
-  ElMessage.success('跳转到确认订单页面');
-  router.push('/order-confirm');
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录');
+    router.push('/login');
+    return;
+  }
+  
+  router.push({
+    path: '/order-confirm',
+    query: {
+      productId: product.id,
+      quantity: quantity.value
+    }
+  });
 };
 
 const decreaseQuantity = () => {

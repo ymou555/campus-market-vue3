@@ -94,7 +94,7 @@ const handleRefund = () => {
         <button v-if="order.status === 'pending'" class="action-btn primary-btn" @click="handlePay">立即付款</button>
         <button v-if="order.status === 'shipped'" class="action-btn primary-btn" @click="handleConfirm">确认收货</button>
         <button v-if="order.status === 'received'" class="action-btn primary-btn" @click="handleReview">去评价</button>
-        <button v-if="order.status === 'completed'" class="action-btn" @click="handleRefund">申请售后</button>
+        <button v-if="order.status === 'received'" class="action-btn" @click="handleRefund">申请售后</button>
       </div>
     </div>
   </div>

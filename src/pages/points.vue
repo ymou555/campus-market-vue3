@@ -50,11 +50,10 @@ const fetchPointsRecords = async () => {
     });
     
     if (response && response.code === 200 && response.data) {
-      // 转换数据格式
       transactions.value = response.data.map(item => ({
         id: item.id,
         type: item.type,
-        amount: item.type === 'earn' ? item.points : -item.points,
+        amount: item.points,
         time: item.createTime,
         desc: item.remark
       }));

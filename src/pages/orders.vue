@@ -58,16 +58,63 @@ const handleView = (order) => {
   router.push(`/order/${order.id}`);
 };
 
-const handlePay = (order) => {
-  ElMessage.success(`订单 ${order.orderNo} 跳转到支付页面`);
+const handlePay = async (order) => {
+  try {
+    const response = await axios.post('/order/pay', null, {
+      params: {
+        orderId: order.id
+      }
+    });
+    
+    if (response && response.code === 200) {
+      ElMessage.success('支付成功');
+      fetchOrders(currentTab.value);
+    } else {
+      ElMessage.error(response?.message || '支付失败');
+    }
+  } catch (error) {
+    console.error('支付失败:', error);
+    ElMessage.error('支付失败，请稍后重试');
+  }
 };
 
 const handleCancel = (order) => {
   ElMessage.success(`订单 ${order.orderNo} 已取消`);
 };
 
-const handleConfirm = (order) => {
-  ElMessage.success(`订单 ${order.orderNo} 已确认收货`);
+const handleConfirm = async (order) => {
+  try {
+    if (order.deliveryType === 'face_to_face') {
+      const response = await axios.post('/order/meet/complete', null, {
+        params: {
+          orderId: order.id
+        }
+      });
+      
+      if (response && response.code === 200) {
+        ElMessage.success('收货成功');
+        fetchOrders(currentTab.value);
+      } else {
+        ElMessage.error(response?.message || '确认收货失败');
+      }
+    } else {
+      const response = await axios.post('/order/receive', null, {
+        params: {
+          orderId: order.id
+        }
+      });
+      
+      if (response && response.code === 200) {
+        ElMessage.success('收货成功');
+        fetchOrders(currentTab.value);
+      } else {
+        ElMessage.error(response?.message || '确认收货失败');
+      }
+    }
+  } catch (error) {
+    console.error('确认收货失败:', error);
+    ElMessage.error('确认收货失败，请稍后重试');
+  }
 };
 
 const handleReview = (order) => {
