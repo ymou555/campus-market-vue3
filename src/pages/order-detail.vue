@@ -31,7 +31,8 @@ const order = reactive({
   products: [],
   productTotal: 0,
   pointsDiscount: 0,
-  totalAmount: 0
+  totalAmount: 0,
+  returnRequest: null
 });
 
 const countdown = ref('');
@@ -43,6 +44,9 @@ const newMeetSuggestion = reactive({
   meetLocation: ''
 });
 
+const showReturnDialog = ref(false);
+const returnReason = ref('');
+
 const getStatusType = (status) => {
   const statusMap = {
     'pending': 'warning',
@@ -50,6 +54,7 @@ const getStatusType = (status) => {
     'paid': 'info',
     'shipped': 'info',
     'received': 'success',
+    'returning': 'warning',
     'completed': 'success',
     'refunded': 'danger',
     'cancelled': 'default'
@@ -64,6 +69,7 @@ const getStatusText = (status) => {
     'paid': '待发货',
     'shipped': '待收货',
     'received': '待评价',
+    'returning': '退货中',
     'completed': '已完成',
     'refunded': '已退款',
     'cancelled': '已取消'
@@ -101,6 +107,8 @@ const getStatusDesc = computed(() => {
     }
   } else if (status === 'received') {
     return '快去评价商品吧';
+  } else if (status === 'returning') {
+    return '退货申请已提交，等待商家审核';
   } else if (status === 'completed') {
     return '交易已完成';
   } else if (status === 'refunded') {
@@ -179,8 +187,41 @@ const confirmReceipt = async () => {
 };
 
 const applyRefund = () => {
-  ElMessage.success('申请退款成功');
-  order.status = 'refunded';
+  returnReason.value = '';
+  showReturnDialog.value = true;
+};
+
+const submitReturn = async () => {
+  if (!returnReason.value) {
+    ElMessage.warning('请输入退货原因');
+    return;
+  }
+  
+  try {
+    const response = await axios.post('/order/return/apply', null, {
+      params: {
+        orderId: order.id,
+        reason: returnReason.value
+      }
+    });
+    
+    if (response && response.code === 200) {
+      ElMessage.success('退货申请已提交，等待商家审核');
+      showReturnDialog.value = false;
+      returnReason.value = '';
+      order.status = 'returning';
+    } else {
+      ElMessage.error(response?.message || '申请退货失败');
+    }
+  } catch (error) {
+    console.error('申请退货失败:', error);
+    ElMessage.error('申请退货失败，请稍后重试');
+  }
+};
+
+const closeReturnDialog = () => {
+  showReturnDialog.value = false;
+  returnReason.value = '';
 };
 
 const buyAgain = () => {
@@ -348,9 +389,28 @@ onUnmounted(() => {
       <div class="status-section">
         <div class="status-header">
           <StatusTag :status="getStatusType(order.status)" :text="getStatusText(order.status)" />
+          <StatusTag 
+            v-if="order.returnRequest && order.returnRequest.status === 'rejected' && order.status === 'received'"
+            status="danger" 
+            text="商家拒绝退货" 
+          />
           <div class="status-desc">{{ getStatusDesc }}</div>
         </div>
         <div v-if="countdown" class="countdown">{{ countdown }}</div>
+      </div>
+      
+      <div v-if="order.returnRequest && order.returnRequest.status === 'rejected' && order.status === 'received'" class="return-reject-section">
+        <h3 class="section-title">退货拒绝信息</h3>
+        <div class="reject-info">
+          <div class="reject-item">
+            <span class="reject-label">拒绝理由：</span>
+            <span class="reject-value">{{ order.returnRequest.auditRemark }}</span>
+          </div>
+          <div class="reject-item">
+            <span class="reject-label">处理时间：</span>
+            <span class="reject-value">{{ order.returnRequest.auditTime }}</span>
+          </div>
+        </div>
       </div>
       
       <div v-if="order.deliveryType === 'express'" class="delivery-section">
@@ -486,12 +546,16 @@ onUnmounted(() => {
         
         <template v-if="order.status === 'received'">
           <button class="action-btn primary-btn" @click="router.push(`/review/${order.id}`)">去评价</button>
-          <button class="action-btn" @click="applyRefund">申请退款</button>
+          <button class="action-btn" @click="applyRefund">申请退货</button>
         </template>
         
         <template v-if="order.status === 'completed'">
           <button class="action-btn" @click="buyAgain">再次购买</button>
           <button class="action-btn" @click="router.push(`/review/${order.id}`)">查看评价</button>
+        </template>
+        
+        <template v-if="order.status === 'returning'">
+          <button class="action-btn" disabled>等待商家处理</button>
         </template>
         
         <template v-if="order.status === 'cancelled' || order.status === 'refunded'">
@@ -532,6 +596,28 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+    
+    <el-dialog v-model="showReturnDialog" title="申请退货" width="600px">
+      <div class="return-form">
+        <div class="form-item">
+          <span class="form-label">订单号</span>
+          <span class="form-value">{{ order.orderNo }}</span>
+        </div>
+        <div class="form-item">
+          <span class="form-label">退货原因</span>
+          <textarea 
+            v-model="returnReason"
+            class="content-input"
+            placeholder="请输入退货原因..."
+            rows="4"
+          ></textarea>
+        </div>
+      </div>
+      <template #footer>
+        <button class="dialog-btn cancel-btn" @click="closeReturnDialog">取消</button>
+        <button class="dialog-btn confirm-btn" @click="submitReturn">提交申请</button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -616,28 +702,32 @@ onUnmounted(() => {
 .meet-section,
 .products-section,
 .info-section,
-.amount-section {
+.amount-section,
+.return-reject-section {
   margin-bottom: 24px;
   padding-bottom: 24px;
   border-bottom: 1px solid #f0f0f0;
 }
 
 .delivery-info,
-.meet-info {
+.meet-info,
+.reject-info {
   background-color: #fafafa;
   border-radius: 12px;
   padding: 16px;
 }
 
 .delivery-header,
-.meet-item {
+.meet-item,
+.reject-item {
   display: flex;
   gap: 12px;
   margin-bottom: 8px;
 }
 
 .delivery-name,
-.meet-label {
+.meet-label,
+.reject-label {
   font-size: 15px;
   font-family: Inter;
   font-weight: 600;
@@ -645,7 +735,8 @@ onUnmounted(() => {
 }
 
 .delivery-phone,
-.meet-value {
+.meet-value,
+.reject-value {
   font-size: 14px;
   font-family: Inter;
   color: #666666;
@@ -860,6 +951,19 @@ onUnmounted(() => {
   transform: scale(1.05);
 }
 
+.action-btn:disabled {
+  background-color: #f5f5f5;
+  border-color: #d9d9d9;
+  color: #999999;
+  cursor: not-allowed;
+}
+
+.action-btn:disabled:hover {
+  border-color: #d9d9d9;
+  color: #999999;
+  transform: none;
+}
+
 .dialog-overlay {
   position: fixed;
   top: 0;
@@ -998,5 +1102,34 @@ onUnmounted(() => {
 .confirm-btn:hover {
   background-color: #b04a3c;
   border-color: #b04a3c;
+}
+
+.return-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.content-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: Inter;
+  color: #333333;
+  resize: vertical;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.content-input:hover:not(:focus) {
+  border-color: #cb5747;
+  box-shadow: 0px 0px 4px rgba(203, 87, 71, 0.3);
+}
+
+.content-input:focus {
+  border-color: #cb5747;
+  box-shadow: 0px 0px 6px rgba(203, 87, 71, 0.5);
 }
 </style>

@@ -1,10 +1,48 @@
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import DataCard from '../../components/DataCard.vue';
 import { ElMessage } from 'element-plus';
 
 const router = useRouter();
+
+const merchantStatus = reactive({
+  isBanned: false,
+  banType: null,
+  banEndTime: null,
+  banReason: '',
+  isClosed: false
+});
+
+const checkMerchantStatus = () => {
+  const isBanned = Math.random() > 0.7;
+  
+  if (isBanned) {
+    merchantStatus.isBanned = true;
+    merchantStatus.banType = 'temporary';
+    merchantStatus.banEndTime = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+    merchantStatus.banReason = '店铺违规，限时封禁中';
+  } else {
+    merchantStatus.isBanned = false;
+  }
+};
+
+const getRemainingTime = computed(() => {
+  if (!merchantStatus.banEndTime) return '';
+  const now = new Date();
+  const endTime = new Date(merchantStatus.banEndTime);
+  const diff = endTime - now;
+  
+  if (diff <= 0) return '已到期';
+  
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  
+  if (days > 0) {
+    return `${days}天${hours}小时`;
+  }
+  return `${hours}小时`;
+});
 
 const shopInfo = reactive({
   name: '数码小店',
@@ -33,8 +71,16 @@ const notifications = ref([
 ]);
 
 const goTo = (path) => {
+  if (merchantStatus.isBanned && path === '/merchant/product-publish') {
+    ElMessage.error('您的店铺已被封禁，暂时无法发布商品');
+    return;
+  }
   router.push(path);
 };
+
+onMounted(() => {
+  checkMerchantStatus();
+});
 </script>
 
 <template>
@@ -45,6 +91,22 @@ const goTo = (path) => {
     </div>
     
     <div class="dashboard-container">
+      <div v-if="merchantStatus.isBanned" class="ban-warning">
+        <div class="warning-icon">🚫</div>
+        <div class="warning-content">
+          <div class="warning-title">店铺已被封禁</div>
+          <div class="warning-text">
+            原因: {{ merchantStatus.banReason }}
+          </div>
+          <div class="warning-text">
+            剩余时间: {{ getRemainingTime }}
+          </div>
+          <div class="warning-tip">
+            封禁期间，您无法发布新商品。请等待封禁期结束后再进行操作。
+          </div>
+        </div>
+      </div>
+      
       <div class="shop-section">
         <img :src="shopInfo.avatar" class="shop-avatar" />
         <div class="shop-info">
@@ -129,6 +191,50 @@ const goTo = (path) => {
   border-radius: 20px;
   filter: drop-shadow(0px 0px 35px #00000026);
   padding: 30px;
+}
+
+.ban-warning {
+  display: flex;
+  gap: 20px;
+  padding: 24px;
+  background-color: #ffebee;
+  border-radius: 16px;
+  border: 2px solid #ffcdd2;
+  margin-bottom: 24px;
+  align-items: flex-start;
+}
+
+.ban-warning .warning-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.ban-warning .warning-content {
+  flex: 1;
+}
+
+.ban-warning .warning-title {
+  font-size: 20px;
+  font-family: Inter;
+  font-weight: 700;
+  color: #c62828;
+  margin-bottom: 12px;
+}
+
+.ban-warning .warning-text {
+  font-size: 14px;
+  font-family: Inter;
+  color: #c62828;
+  margin-bottom: 8px;
+}
+
+.ban-warning .warning-tip {
+  font-size: 14px;
+  font-family: Inter;
+  color: #666666;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #ffcdd2;
 }
 
 .shop-section {

@@ -18,6 +18,7 @@ const getStatusType = (status) => {
     'paid': 'info',
     'shipped': 'info',
     'received': 'success',
+    'returning': 'warning',
     'completed': 'success',
     'refunded': 'danger',
     'cancelled': 'default'
@@ -32,6 +33,7 @@ const getStatusText = (status) => {
     'paid': '待发货',
     'shipped': '待收货',
     'received': '待评价',
+    'returning': '退货中',
     'completed': '已完成',
     'refunded': '已退款',
     'cancelled': '已取消'
@@ -70,6 +72,11 @@ const handleRefund = () => {
       <div class="order-info">
         <span class="order-number">订单号: {{ order.orderNo }}</span>
         <StatusTag :status="getStatusType(order.status)" :text="getStatusText(order.status)" />
+        <StatusTag 
+          v-if="order.returnRequest && order.returnRequest.status === 'rejected' && order.status === 'received'"
+          status="danger" 
+          text="商家拒绝退货" 
+        />
       </div>
       <span class="order-date">{{ order.createTime }}</span>
     </div>
@@ -94,7 +101,7 @@ const handleRefund = () => {
         <button v-if="order.status === 'pending'" class="action-btn primary-btn" @click="handlePay">立即付款</button>
         <button v-if="order.status === 'shipped'" class="action-btn primary-btn" @click="handleConfirm">确认收货</button>
         <button v-if="order.status === 'received'" class="action-btn primary-btn" @click="handleReview">去评价</button>
-        <button v-if="order.status === 'received'" class="action-btn" @click="handleRefund">申请售后</button>
+        <button v-if="order.status === 'received'" class="action-btn" @click="handleRefund">申请退货</button>
       </div>
     </div>
   </div>
