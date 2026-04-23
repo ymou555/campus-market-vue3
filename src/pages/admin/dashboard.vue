@@ -30,7 +30,7 @@ const chartData = ref([
 const quickActions = [
   { icon: '👥', title: '用户审核', path: '/admin/user-audit', count: pendingItems.userAudit },
   { icon: '📦', title: '商品审核', path: '/admin/product-audit', count: pendingItems.productAudit },
-  { icon: '👤', title: '用户管理', path: '/admin/users' },
+  { icon: '👤', title: '普通用户管理', path: '/admin/users' },
   { icon: '🏪', title: '商家管理', path: '/admin/merchants' },
   { icon: '🏆', title: '商家等级管理', path: '/admin/merchant-levels' },
   { icon: '🖼️', title: '轮播图管理', path: '/admin/banners' },
