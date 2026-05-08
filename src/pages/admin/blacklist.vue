@@ -1,107 +1,95 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import StatusTag from '../../components/StatusTag.vue';
 import BackButton from '../../components/BackButton.vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import axios from '../../utils/axios';
+import { useUserStore } from '../../store/user';
+
+const userStore = useUserStore();
 
 const searchKeyword = ref('');
 const filterType = ref('');
-const filterScope = ref('');
+const loading = ref(false);
 
-const blacklist = ref([
-  { 
-    id: 1, 
-    username: 'baduser1', 
-    name: '不良用户1', 
-    blockedBy: '管理员A', 
-    blockedById: null,
-    reason: '发布违规商品', 
-    time: '2024-01-15 10:30:00',
-    type: 'platform',
-    scope: 'all',
-    merchantName: null
-  },
-  { 
-    id: 2, 
-    username: 'baduser2', 
-    name: '不良用户2', 
-    blockedBy: '管理员B', 
-    blockedById: null,
-    reason: '恶意评价', 
-    time: '2024-01-14 15:20:00',
-    type: 'platform',
-    scope: 'all',
-    merchantName: null
-  },
-  { 
-    id: 3, 
-    username: 'malicious1', 
-    name: '恶意买家1', 
-    blockedBy: '数码小店', 
-    blockedById: 1,
-    reason: '恶意退款', 
-    time: '2024-01-13 09:15:00',
-    type: 'merchant',
-    scope: 'merchant',
-    merchantName: '数码小店'
-  },
-  { 
-    id: 4, 
-    username: 'malicious2', 
-    name: '恶意买家2', 
-    blockedBy: '运动装备', 
-    blockedById: 2,
-    reason: '频繁取消订单', 
-    time: '2024-01-12 14:30:00',
-    type: 'merchant',
-    scope: 'merchant',
-    merchantName: '运动装备'
-  }
-]);
+const blacklist = ref([]);
 
 const showAddDialog = ref(false);
 const newBlacklist = ref({
-  username: '',
-  reason: '',
-  type: 'platform',
-  scope: 'all',
-  merchantId: null
+  userId: '',
+  reason: ''
 });
 
-const getTypeText = (type) => {
-  return type === 'platform' ? '平台拉黑' : '商家拉黑';
+const getTypeText = (blacklistType) => {
+  return blacklistType === 'admin' ? '平台拉黑' : '商家拉黑';
 };
 
-const getTypeStatus = (type) => {
-  return type === 'platform' ? 'danger' : 'warning';
+const getTypeStatus = (blacklistType) => {
+  return blacklistType === 'admin' ? 'danger' : 'warning';
 };
 
-const getScopeText = (scope, merchantName) => {
-  if (scope === 'all') return '全平台禁止购买';
+const getScopeText = (blacklistType, merchantName) => {
+  if (blacklistType === 'admin') return '全平台禁止购买';
   return `仅限"${merchantName}"店铺禁止购买`;
 };
 
-const getScopeStatus = (scope) => {
-  return scope === 'all' ? 'danger' : 'info';
+const getScopeStatus = (blacklistType) => {
+  return blacklistType === 'admin' ? 'danger' : 'info';
 };
 
-const removeFromBlacklist = (item) => {
-  ElMessageBox.confirm('确定要将该用户从黑名单移除吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    const index = blacklist.value.findIndex(b => b.id === item.id);
-    if (index > -1) {
-      blacklist.value.splice(index, 1);
-      ElMessage.success('已从黑名单移除');
+const fetchBlacklist = async () => {
+  loading.value = true;
+  try {
+    const response = await axios.get('/admin/user/blacklist/list');
+    
+    if (response && response.code === 200) {
+      blacklist.value = response.data || [];
+    } else {
+      ElMessage.error(response?.message || '获取黑名单失败');
     }
-  }).catch(() => {});
+  } catch (error) {
+    console.error('获取黑名单失败:', error);
+    ElMessage.error('获取黑名单失败，请稍后重试');
+  } finally {
+    loading.value = false;
+  }
 };
 
-const addToBlacklist = () => {
-  if (!newBlacklist.value.username) {
-    ElMessage.error('请输入用户名');
+const removeFromBlacklist = async (item) => {
+  if (!userStore.userInfo || !userStore.userInfo.id) {
+    ElMessage.error('请先登录');
+    return;
+  }
+  
+  try {
+    ElMessageBox.confirm('确定要将该用户从黑名单移除吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }).then(async () => {
+      const response = await axios.post('/admin/user/blacklist/remove', null, {
+        params: {
+          userId: item.id,
+          adminId: userStore.userInfo.id
+        }
+      });
+      
+      if (response && response.code === 200) {
+        ElMessage.success('已从黑名单移除');
+        fetchBlacklist();
+      } else {
+        ElMessage.error(response?.message || '解除拉黑失败');
+      }
+    }).catch(() => {});
+  } catch (error) {
+    console.error('解除拉黑失败:', error);
+    ElMessage.error('解除拉黑失败，请稍后重试');
+  }
+};
+
+const addToBlacklist = async () => {
+  if (!newBlacklist.value.userId) {
+    ElMessage.error('请输入用户ID');
     return;
   }
   if (!newBlacklist.value.reason) {
@@ -109,30 +97,35 @@ const addToBlacklist = () => {
     return;
   }
   
-  const isPlatform = newBlacklist.value.type === 'platform';
+  if (!userStore.userInfo || !userStore.userInfo.id) {
+    ElMessage.error('请先登录');
+    return;
+  }
   
-  blacklist.value.unshift({
-    id: Date.now(),
-    username: newBlacklist.value.username,
-    name: newBlacklist.value.username,
-    blockedBy: isPlatform ? '当前管理员' : '当前商家',
-    blockedById: isPlatform ? null : 1,
-    reason: newBlacklist.value.reason,
-    time: new Date().toLocaleString(),
-    type: newBlacklist.value.type,
-    scope: newBlacklist.value.scope,
-    merchantName: isPlatform ? null : '当前店铺'
-  });
-  
-  newBlacklist.value = { 
-    username: '', 
-    reason: '', 
-    type: 'platform', 
-    scope: 'all',
-    merchantId: null
-  };
-  showAddDialog.value = false;
-  ElMessage.success('已添加到黑名单');
+  try {
+    const response = await axios.post('/admin/user/blacklist', null, {
+      params: {
+        userId: newBlacklist.value.userId,
+        adminId: userStore.userInfo.id,
+        reason: newBlacklist.value.reason
+      }
+    });
+    
+    if (response && response.code === 200) {
+      newBlacklist.value = { 
+        userId: '', 
+        reason: ''
+      };
+      showAddDialog.value = false;
+      ElMessage.success('已添加到黑名单');
+      fetchBlacklist();
+    } else {
+      ElMessage.error(response?.message || '添加黑名单失败');
+    }
+  } catch (error) {
+    console.error('添加黑名单失败:', error);
+    ElMessage.error('添加黑名单失败，请稍后重试');
+  }
 };
 
 const filteredBlacklist = computed(() => {
@@ -147,11 +140,7 @@ const filteredBlacklist = computed(() => {
   }
   
   if (filterType.value) {
-    result = result.filter(item => item.type === filterType.value);
-  }
-  
-  if (filterScope.value) {
-    result = result.filter(item => item.scope === filterScope.value);
+    result = result.filter(item => item.blacklistType === filterType.value);
   }
   
   return result;
@@ -160,8 +149,11 @@ const filteredBlacklist = computed(() => {
 const resetFilters = () => {
   searchKeyword.value = '';
   filterType.value = '';
-  filterScope.value = '';
 };
+
+onMounted(() => {
+  fetchBlacklist();
+});
 </script>
 
 <template>
@@ -187,12 +179,8 @@ const resetFilters = () => {
           placeholder="搜索用户名..."
         />
         <el-select v-model="filterType" placeholder="拉黑类型" class="filter-select" clearable>
-          <el-option label="平台拉黑" value="platform" />
+          <el-option label="平台拉黑" value="admin" />
           <el-option label="商家拉黑" value="merchant" />
-        </el-select>
-        <el-select v-model="filterScope" placeholder="拉黑范围" class="filter-select" clearable>
-          <el-option label="全平台禁止" value="all" />
-          <el-option label="特定商家禁止" value="merchant" />
         </el-select>
         <button class="reset-btn" @click="resetFilters">重置</button>
       </div>
@@ -203,7 +191,7 @@ const resetFilters = () => {
             <div class="item-header">
               <span class="item-name">{{ item.name }}</span>
               <span class="item-username">@{{ item.username }}</span>
-              <StatusTag :status="getTypeStatus(item.type)" :text="getTypeText(item.type)" />
+              <StatusTag :status="getTypeStatus(item.blacklistType)" :text="getTypeText(item.blacklistType)" />
             </div>
             <div class="item-meta">
               <span>拉黑者: {{ item.blockedBy }}</span>
@@ -211,7 +199,7 @@ const resetFilters = () => {
               <span>时间: {{ item.time }}</span>
             </div>
             <div class="item-scope">
-              <StatusTag :status="getScopeStatus(item.scope)" :text="getScopeText(item.scope, item.merchantName)" />
+              <StatusTag :status="getScopeStatus(item.blacklistType)" :text="getScopeText(item.blacklistType, item.merchantName)" />
             </div>
           </div>
           <button class="remove-btn" @click="removeFromBlacklist(item)">解除拉黑</button>
@@ -226,15 +214,15 @@ const resetFilters = () => {
     <el-dialog v-model="showAddDialog" title="添加黑名单" width="550px">
       <div class="add-form">
         <div class="form-item">
-          <span class="form-label">用户名 <span class="required-mark">*</span></span>
+          <span class="form-label">用户ID <span class="required-mark">*</span></span>
           <input 
-            v-model="newBlacklist.username"
+            v-model="newBlacklist.userId"
             class="form-input"
-            placeholder="请输入用户名"
+            placeholder="请输入用户ID"
           />
         </div>
         <div class="form-item">
-          <span class="form-label">拉黑原因</span>
+          <span class="form-label">拉黑原因 <span class="required-mark">*</span></span>
           <textarea 
             v-model="newBlacklist.reason"
             class="form-textarea"
@@ -347,6 +335,18 @@ const resetFilters = () => {
 
 ::v-deep(.filter-select .el-select__wrapper) {
   border-radius: 100px !important;
+  box-shadow: none !important;
+  border: solid 1px #d9d9d9 !important;
+}
+
+::v-deep(.filter-select .el-select__wrapper.is-hovering) {
+  border-color: #cb5747 !important;
+  box-shadow: 0px 0px 4px rgba(203, 87, 71, 0.3) !important;
+}
+
+::v-deep(.filter-select .el-select__wrapper.is-focused) {
+  border-color: #cb5747 !important;
+  box-shadow: 0px 0px 6px rgba(203, 87, 71, 0.5) !important;
 }
 
 .reset-btn {
