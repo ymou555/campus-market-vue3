@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import StatusTag from '../../components/StatusTag.vue';
 import BackButton from '../../components/BackButton.vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -40,7 +40,17 @@ const getScopeStatus = (blacklistType) => {
 const fetchBlacklist = async () => {
   loading.value = true;
   try {
-    const response = await axios.get('/admin/user/blacklist/list');
+    const params = {};
+    
+    if (searchKeyword.value) {
+      params.username = searchKeyword.value;
+    }
+    
+    if (filterType.value) {
+      params.blacklistType = filterType.value;
+    }
+    
+    const response = await axios.get('/admin/user/blacklist/list', { params });
     
     if (response && response.code === 200) {
       blacklist.value = response.data || [];
@@ -53,6 +63,16 @@ const fetchBlacklist = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const searchBlacklist = () => {
+  fetchBlacklist();
+};
+
+const resetFilters = () => {
+  searchKeyword.value = '';
+  filterType.value = '';
+  fetchBlacklist();
 };
 
 const removeFromBlacklist = async (item) => {
@@ -128,29 +148,6 @@ const addToBlacklist = async () => {
   }
 };
 
-const filteredBlacklist = computed(() => {
-  let result = blacklist.value;
-  
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase();
-    result = result.filter(item => 
-      item.username.toLowerCase().includes(keyword) ||
-      item.name.toLowerCase().includes(keyword)
-    );
-  }
-  
-  if (filterType.value) {
-    result = result.filter(item => item.blacklistType === filterType.value);
-  }
-  
-  return result;
-});
-
-const resetFilters = () => {
-  searchKeyword.value = '';
-  filterType.value = '';
-};
-
 onMounted(() => {
   fetchBlacklist();
 });
@@ -177,16 +174,18 @@ onMounted(() => {
           v-model="searchKeyword"
           class="search-input"
           placeholder="搜索用户名..."
+          @keyup.enter="searchBlacklist"
         />
         <el-select v-model="filterType" placeholder="拉黑类型" class="filter-select" clearable>
           <el-option label="平台拉黑" value="admin" />
           <el-option label="商家拉黑" value="merchant" />
         </el-select>
+        <button class="search-btn" @click="searchBlacklist">搜索</button>
         <button class="reset-btn" @click="resetFilters">重置</button>
       </div>
       
       <div class="blacklist-list">
-        <div v-for="item in filteredBlacklist" :key="item.id" class="blacklist-item">
+        <div v-for="item in blacklist" :key="item.id" class="blacklist-item">
           <div class="item-info">
             <div class="item-header">
               <span class="item-name">{{ item.name }}</span>
@@ -205,7 +204,7 @@ onMounted(() => {
           <button class="remove-btn" @click="removeFromBlacklist(item)">解除拉黑</button>
         </div>
         
-        <div v-if="filteredBlacklist.length === 0" class="empty-list">
+        <div v-if="blacklist.length === 0" class="empty-list">
           <span class="empty-text">暂无符合条件的黑名单记录</span>
         </div>
       </div>
@@ -321,6 +320,7 @@ onMounted(() => {
   border: solid 1px #d9d9d9;
   outline: none;
   font-size: 14px;
+  font-family: Inter;
   transition: all 0.3s ease;
 }
 
@@ -356,6 +356,7 @@ onMounted(() => {
   border-radius: 100px;
   color: #666666;
   font-size: 14px;
+  font-family: Inter;
   cursor: pointer;
   transition: all 0.3s ease;
 }
@@ -363,6 +364,22 @@ onMounted(() => {
 .reset-btn:hover {
   border-color: #cb5747;
   color: #cb5747;
+}
+
+.search-btn {
+  padding: 10px 24px;
+  background-color: #cb5747;
+  border: none;
+  border-radius: 100px;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: Inter;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.search-btn:hover {
+  background-color: #b04a3c;
 }
 
 .blacklist-list {

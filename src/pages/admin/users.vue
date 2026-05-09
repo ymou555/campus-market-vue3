@@ -218,7 +218,7 @@ onMounted(() => {
         <input 
           v-model="searchKeyword"
           class="search-input"
-          placeholder="搜索用户名、姓名、手机号..."
+          placeholder="搜索用户名..."
         />
         <el-select v-model="selectedStatus" placeholder="用户状态" class="filter-select" clearable>
           <el-option label="待审核" value="pending" />
