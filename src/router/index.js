@@ -17,6 +17,11 @@ const routes = [
     component: () => import('../pages/merchant-register.vue'),
   },
   {
+    path: '/merchant-apply',
+    name: 'merchant-apply',
+    component: () => import('../pages/merchant-apply.vue'),
+  },
+  {
     path: '/',
     name: 'home',
     component: () => import('../pages/home.vue'),

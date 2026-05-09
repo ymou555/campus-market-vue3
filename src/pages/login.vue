@@ -60,7 +60,16 @@
           // 直接使用接口返回的用户信息
           userStore.setUserInfo(response.user || {});
           ElMessage.success('登录成功');
-          router.push('/');
+          
+          const userRole = response.user?.role || 'user';
+          
+          if (userRole === 'admin') {
+            router.push('/admin/dashboard');
+          } else if (userRole === 'merchant') {
+            router.push('/merchant/dashboard');
+          } else {
+            router.push('/');
+          }
         } else {
           ElMessage.error('登录失败: 缺少token');
         }
@@ -71,13 +80,10 @@
       console.error('登录失败:', error);
       console.error('错误详情:', error.response);
       if (error.response) {
-        // 服务器返回错误
         ElMessage.error(`登录失败: ${error.response.data?.message || '服务器错误'}`);
       } else if (error.request) {
-        // 请求已发送但没有收到响应
         ElMessage.error('登录失败: 服务器无响应');
       } else {
-        // 请求配置出错
         ElMessage.error('登录失败: 请求配置错误');
       }
     }

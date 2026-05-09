@@ -1,5 +1,5 @@
 <script setup>
-  import { ref } from 'vue';
+  import { ref, computed } from 'vue';
   import { useRouter, useRoute } from 'vue-router';
   import { useUserStore } from '../store/user';
   import { ElMessage } from 'element-plus';
@@ -8,6 +8,14 @@
   const userStore = useUserStore();
   
   const searchKeyword = ref('');
+  
+  const isBothRole = computed(() => {
+    return userStore.userInfo?.role === 'both';
+  });
+  
+  const isUserRole = computed(() => {
+    return userStore.userInfo?.role === 'user';
+  });
   
   const goToLogin = () => {
     router.push('/login');
@@ -19,6 +27,14 @@
   
   const goToCart = () => {
     router.push('/cart');
+  };
+  
+  const goToMerchantCenter = () => {
+    router.push('/merchant/dashboard');
+  };
+  
+  const goToMerchantApply = () => {
+    router.push('/merchant-apply');
   };
   
   const logout = () => {
@@ -70,6 +86,12 @@
     </div>
     <!-- 登录状态显示 -->
     <div v-if="userStore.isLoggedIn" class="flex-row items-center pos_2">
+      <div v-if="isBothRole" class="flex-col justify-center items-center nav-btn mr-10" @click="goToMerchantCenter">
+        <span class="text_2">卖家中心</span>
+      </div>
+      <div v-if="isUserRole" class="flex-col justify-center items-center nav-btn mr-10" @click="goToMerchantApply">
+        <span class="text_2">申请成为商家</span>
+      </div>
       <div class="cart-icon" @click="goToCart">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
           <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
@@ -95,6 +117,9 @@
   }
   .ml-10 {
     margin-left: 10px;
+  }
+  .mr-10 {
+    margin-right: 10px;
   }
   .pos {
     position: absolute;
@@ -222,6 +247,34 @@
   .cart-icon:hover {
     transform: scale(1.1);
     color: #ffcccc;
+  }
+  
+  .nav-btn {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 12px 16px 10px;
+    border-radius: 100px;
+    border-left: solid 2px #ffffff;
+    border-right: solid 2px #ffffff;
+    border-top: solid 2px #ffffff;
+    border-bottom: solid 2px #ffffff;
+  }
+  
+  .nav-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+  }
+  
+  .user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #d03838;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
   }
   
   .user-avatar:hover {

@@ -3,8 +3,20 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import DataCard from '../../components/DataCard.vue';
 import { ElMessage } from 'element-plus';
+import { useUserStore } from '../../store/user';
 
 const router = useRouter();
+const userStore = useUserStore();
+
+const isBothRole = computed(() => {
+  return userStore.userInfo?.role === 'both';
+});
+
+const isMerchantOnly = computed(() => {
+  return userStore.userInfo?.role === 'merchant';
+});
+
+const showOpenBuyerDialog = ref(false);
 
 const merchantStatus = reactive({
   isBanned: false,
@@ -78,6 +90,23 @@ const goTo = (path) => {
   router.push(path);
 };
 
+const goToHome = () => {
+  router.push('/');
+};
+
+const openBuyerDialog = () => {
+  showOpenBuyerDialog.value = true;
+};
+
+const confirmOpenBuyer = () => {
+  userStore.setUserInfo({
+    ...userStore.userInfo,
+    role: 'both'
+  });
+  showOpenBuyerDialog.value = false;
+  ElMessage.success('已开通买家功能，您现在可以浏览和购买商品了');
+};
+
 onMounted(() => {
   checkMerchantStatus();
 });
@@ -88,6 +117,9 @@ onMounted(() => {
     <div class="flex-row items-center self-stretch group">
       <img class="image" src="../../assets/logo.svg" />
       <span class="ml-10 text">校园二手交易平台 - 商家后台</span>
+      <div v-if="isBothRole" class="flex-col justify-center items-center home-btn" @click="goToHome">
+        <span>买家中心</span>
+      </div>
     </div>
     
     <div class="dashboard-container">
@@ -105,6 +137,17 @@ onMounted(() => {
             封禁期间，您无法发布新商品。请等待封禁期结束后再进行操作。
           </div>
         </div>
+      </div>
+      
+      <div v-if="isMerchantOnly" class="open-buyer-tip">
+        <div class="tip-icon">💡</div>
+        <div class="tip-content">
+          <div class="tip-title">开通买家功能</div>
+          <div class="tip-text">
+            开通后您可以浏览和购买其他商家的商品
+          </div>
+        </div>
+        <button class="open-buyer-btn" @click="openBuyerDialog">立即开通</button>
       </div>
       
       <div class="shop-section">
@@ -152,6 +195,16 @@ onMounted(() => {
         </div>
       </div>
     </div>
+    
+    <el-dialog v-model="showOpenBuyerDialog" title="开通买家功能" width="400px">
+      <div class="dialog-content">
+        <p class="dialog-text">开通后您可以浏览和购买其他商家的商品</p>
+      </div>
+      <template #footer>
+        <button class="dialog-btn cancel-btn" @click="showOpenBuyerDialog = false">取消</button>
+        <button class="dialog-btn confirm-btn" @click="confirmOpenBuyer">确认开通</button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -183,6 +236,28 @@ onMounted(() => {
   font-family: Inter;
   font-weight: 800;
   line-height: 21.5px;
+}
+
+.home-btn {
+  margin-left: auto;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 8px 0 10px;
+  border-radius: 100px;
+  width: 90px;
+  border-left: solid 2px #ffffff;
+  border-right: solid 2px #ffffff;
+  border-top: solid 2px #ffffff;
+  border-bottom: solid 2px #ffffff;
+  color: #ffffff;
+  font-size: 16px;
+  font-family: Inter;
+  font-weight: 600;
+}
+
+.home-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
 }
 
 .dashboard-container {
@@ -235,6 +310,57 @@ onMounted(() => {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid #ffcdd2;
+}
+
+.open-buyer-tip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background-color: #e3f2fd;
+  border-radius: 16px;
+  border: 2px solid #90caf9;
+  margin-bottom: 24px;
+}
+
+.open-buyer-tip .tip-icon {
+  font-size: 36px;
+}
+
+.open-buyer-tip .tip-content {
+  flex: 1;
+}
+
+.open-buyer-tip .tip-title {
+  font-size: 16px;
+  font-family: Inter;
+  font-weight: 600;
+  color: #1976d2;
+  margin-bottom: 4px;
+}
+
+.open-buyer-tip .tip-text {
+  font-size: 14px;
+  font-family: Inter;
+  color: #666666;
+}
+
+.open-buyer-btn {
+  padding: 10px 24px;
+  background-color: #1976d2;
+  border: none;
+  border-radius: 100px;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: Inter;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.open-buyer-btn:hover {
+  background-color: #1565c0;
+  transform: scale(1.05);
 }
 
 .shop-section {
@@ -383,5 +509,47 @@ onMounted(() => {
   font-size: 12px;
   font-family: Inter;
   color: #999999;
+}
+
+.dialog-content {
+  padding: 10px 0;
+}
+
+.dialog-text {
+  font-size: 16px;
+  font-family: Inter;
+  color: #333333;
+  margin: 0 0 12px 0;
+}
+
+.dialog-btn {
+  padding: 10px 24px;
+  border-radius: 100px;
+  font-size: 14px;
+  font-family: Inter;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn {
+  background-color: #ffffff;
+  border: 1px solid #d9d9d9;
+  color: #666666;
+}
+
+.cancel-btn:hover {
+  border-color: #cb5747;
+  color: #cb5747;
+}
+
+.confirm-btn {
+  background-color: #cb5747;
+  border: 1px solid #cb5747;
+  color: #ffffff;
+}
+
+.confirm-btn:hover {
+  background-color: #b04a3c;
+  border-color: #b04a3c;
 }
 </style>
