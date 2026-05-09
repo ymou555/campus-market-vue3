@@ -15,6 +15,8 @@ const deliveryType = ref('face_to_face');
 
 const selectedProducts = ref([]);
 
+const buyerOfferPrice = ref(null);
+
 const fetchCartItems = async () => {
   if (!userStore.isLoggedIn || !userStore.userInfo || !userStore.userInfo.id) {
     ElMessage.warning('请先登录');
@@ -39,7 +41,7 @@ const fetchCartItems = async () => {
   }
 };
 
-const fetchBuyNowProduct = async (productId, quantity) => {
+const fetchBuyNowProduct = async (productId, quantity, offerPrice) => {
   try {
     const response = await axios.get(`/product/detail?id=${productId}`);
     if (response && response.code === 200) {
@@ -65,6 +67,10 @@ const fetchBuyNowProduct = async (productId, quantity) => {
         merchantId: productData.userId,
         merchantName: merchantName
       }];
+      
+      if (offerPrice) {
+        buyerOfferPrice.value = parseFloat(offerPrice);
+      }
     } else {
       ElMessage.error(response?.message || '获取商品详情失败');
     }
@@ -149,7 +155,11 @@ const pointsDiscount = computed(() => {
 });
 
 const totalAmount = computed(() => {
-  const amount = parseFloat(productTotal.value) - parseFloat(pointsDiscount.value);
+  const baseAmount = buyerOfferPrice.value 
+    ? parseFloat(buyerOfferPrice.value) 
+    : parseFloat(productTotal.value);
+  const discount = buyerOfferPrice.value ? 0 : parseFloat(pointsDiscount.value);
+  const amount = baseAmount - discount;
   return Math.max(0, amount).toFixed(2);
 });
 
@@ -215,8 +225,12 @@ const submitOrder = async () => {
   try {
     const params = new URLSearchParams();
     params.append('userId', userStore.userInfo.id);
-    params.append('pointsDeducted', usePoints.value);
+    params.append('pointsDeducted', buyerOfferPrice.value ? 0 : usePoints.value);
     params.append('deliveryType', deliveryType.value);
+    
+    if (buyerOfferPrice.value) {
+      params.append('buyerOfferPrice', buyerOfferPrice.value);
+    }
     
     if (deliveryType.value === 'express') {
       const address = addresses.value.find(a => a.id === selectedAddress.value);
@@ -243,7 +257,10 @@ const submitOrder = async () => {
     });
     
     if (response && response.code === 200) {
-      ElMessage.success('订单提交成功，跳转到支付页面');
+      const message = buyerOfferPrice.value 
+        ? '议价订单已创建，等待商家确认' 
+        : '订单提交成功，跳转到支付页面';
+      ElMessage.success(message);
       setTimeout(() => {
         router.push('/orders');
       }, 1500);
@@ -257,10 +274,10 @@ const submitOrder = async () => {
 };
 
 onMounted(() => {
-  const { productId, quantity } = route.query;
+  const { productId, quantity, buyerOfferPrice: offerPrice } = route.query;
   
   if (productId && quantity) {
-    fetchBuyNowProduct(productId, quantity);
+    fetchBuyNowProduct(productId, quantity, offerPrice);
   } else {
     fetchCartItems();
   }
@@ -384,7 +401,13 @@ onMounted(() => {
       
       <div class="section">
         <h3 class="section-title">积分抵扣</h3>
-        <div class="points-section">
+        <div v-if="buyerOfferPrice" class="points-section">
+          <div class="points-tip">
+            <span class="tip-icon">💡</span>
+            <span class="tip-text">议价订单暂不支持积分抵扣</span>
+          </div>
+        </div>
+        <div v-else class="points-section">
           <div class="points-info">
             <span class="points-label">可用积分:</span>
             <span class="points-value">{{ userPoints }} 积分</span>
@@ -415,7 +438,11 @@ onMounted(() => {
             <span class="amount-label">商品总额</span>
             <span class="amount-value">¥{{ productTotal }}</span>
           </div>
-          <div class="amount-item">
+          <div v-if="buyerOfferPrice" class="amount-item">
+            <span class="amount-label">议价金额</span>
+            <span class="amount-value offer">¥{{ buyerOfferPrice }}</span>
+          </div>
+          <div v-if="!buyerOfferPrice" class="amount-item">
             <span class="amount-label">积分抵扣</span>
             <span class="amount-value discount">-¥{{ pointsDiscount }}</span>
           </div>
@@ -427,7 +454,9 @@ onMounted(() => {
       </div>
       
       <div class="submit-section">
-        <button class="submit-btn" @click="submitOrder">提交订单</button>
+        <button class="submit-btn" @click="submitOrder">
+          {{ buyerOfferPrice ? '提交议价订单' : '提交订单' }}
+        </button>
       </div>
     </div>
     
@@ -809,6 +838,26 @@ onMounted(() => {
   gap: 16px;
 }
 
+.points-tip {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background-color: #fff7e6;
+  border-radius: 8px;
+  border: 1px solid #ffd591;
+}
+
+.tip-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.tip-text {
+  font-size: 14px;
+  color: #ad6800;
+  line-height: 1.5;
+}
+
 .points-info {
   display: flex;
   align-items: center;
@@ -901,6 +950,11 @@ onMounted(() => {
 
 .amount-value.discount {
   color: #4caf50;
+}
+
+.amount-value.offer {
+  color: #ff9800;
+  font-weight: 600;
 }
 
 .amount-item.total .amount-value {

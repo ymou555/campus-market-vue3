@@ -81,6 +81,9 @@ const getStatusDesc = computed(() => {
   const { status, deliveryType } = order;
   
   if (status === 'pending') {
+    if (order.buyerOfferPrice) {
+      return '议价成功，请尽快完成付款';
+    }
     return '请尽快完成付款';
   } else if (status === 'bargaining') {
     return '等待商家确认议价';
@@ -502,17 +505,17 @@ onUnmounted(() => {
             <span class="amount-label">商品总额</span>
             <span class="amount-value">¥{{ order.productTotal.toFixed(2) }}</span>
           </div>
-          <div v-if="order.buyerOfferPrice" class="amount-item">
-            <span class="amount-label">议价优惠</span>
-            <span class="amount-value discount">-¥{{ (order.productTotal - order.buyerOfferPrice).toFixed(2) }}</span>
+          <div v-if="order.status === 'bargaining' && order.buyerOfferPrice" class="amount-item">
+            <span class="amount-label">议价金额</span>
+            <span class="amount-value offer">¥{{ order.buyerOfferPrice.toFixed(2) }}</span>
           </div>
-          <div class="amount-item">
+          <div v-if="order.status !== 'bargaining'" class="amount-item">
             <span class="amount-label">积分抵扣</span>
             <span class="amount-value discount">-¥{{ (order.pointsDiscount / 100).toFixed(2) }}</span>
           </div>
           <div class="amount-item total">
             <span class="amount-label">实付款</span>
-            <span class="amount-value">¥{{ order.totalAmount.toFixed(2) }}</span>
+            <span class="amount-value">¥{{ order.status === 'bargaining' && order.buyerOfferPrice ? order.buyerOfferPrice.toFixed(2) : order.totalAmount.toFixed(2) }}</span>
           </div>
         </div>
       </div>
@@ -905,6 +908,11 @@ onUnmounted(() => {
 
 .amount-value.discount {
   color: #4caf50;
+}
+
+.amount-value.offer {
+  color: #ff9800;
+  font-weight: 600;
 }
 
 .amount-item.total .amount-value {

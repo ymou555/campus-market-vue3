@@ -240,6 +240,12 @@ const openNegotiateDialog = () => {
 };
 
 const submitNegotiate = () => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录');
+    router.push('/login');
+    return;
+  }
+  
   if (!negotiatePrice.value || isNaN(negotiatePrice.value) || parseFloat(negotiatePrice.value) <= 0) {
     ElMessage.warning('请输入有效的议价金额');
     return;
@@ -248,9 +254,17 @@ const submitNegotiate = () => {
     ElMessage.warning('议价金额应低于商品价格');
     return;
   }
-  ElMessage.success(`已提交议价申请：¥${negotiatePrice.value}`);
+  
+  router.push({
+    path: '/order-confirm',
+    query: {
+      productId: product.id,
+      quantity: quantity.value,
+      buyerOfferPrice: negotiatePrice.value
+    }
+  });
+  
   negotiateDialogVisible.value = false;
-  negotiatePrice.value = '';
 };
 
 onMounted(() => {
@@ -365,31 +379,31 @@ onMounted(() => {
     <el-dialog 
       v-model="negotiateDialogVisible" 
       title="议价申请" 
-      width="400px"
+      width="500px"
       :close-on-click-modal="false"
     >
       <div class="negotiate-dialog-content">
         <div class="negotiate-info">
-          <span class="negotiate-label">商品价格：</span>
+          <span class="negotiate-label">商品价格</span>
           <span class="negotiate-price">¥{{ product.price }}</span>
         </div>
         <div class="negotiate-input-section">
-          <span class="negotiate-label">议价金额：</span>
-          <el-input 
-            v-model="negotiatePrice" 
-            placeholder="请输入议价金额"
+          <span class="negotiate-label">议价金额 <span class="required-mark">*</span></span>
+          <input 
+            v-model="negotiatePrice"
             type="number"
             class="negotiate-input"
-          >
-            <template #prepend>¥</template>
-          </el-input>
+            placeholder="请输入议价金额"
+          />
+        </div>
+        <div class="negotiate-tip">
+          <span class="tip-icon">💡</span>
+          <span class="tip-text">议价金额应低于商品价格，提交后商家将确认是否接受您的议价。</span>
         </div>
       </div>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="negotiateDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitNegotiate">提交</el-button>
-        </span>
+        <button class="dialog-btn cancel-btn" @click="negotiateDialogVisible = false">取消</button>
+        <button class="dialog-btn confirm-btn" @click="submitNegotiate">提交议价</button>
       </template>
     </el-dialog>
     
@@ -775,19 +789,22 @@ onMounted(() => {
 }
 
 .negotiate-dialog-content {
-  padding: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .negotiate-info {
-  margin-bottom: 20px;
   display: flex;
   align-items: center;
+  gap: 12px;
 }
 
 .negotiate-label {
   font-size: 14px;
-  color: #666666;
+  color: #333333;
   font-family: Inter;
+  font-weight: 500;
 }
 
 .negotiate-price {
@@ -805,17 +822,70 @@ onMounted(() => {
 
 .negotiate-input {
   width: 100%;
-}
-
-::v-deep(.negotiate-input .el-input__wrapper) {
+  padding: 10px 12px;
+  border: 1px solid #d9d9d9;
   border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.3s ease;
 }
 
-::v-deep(.negotiate-input .el-input-group__prepend) {
-  background-color: #f5f5f5;
-  border-radius: 8px 0 0 8px;
+.negotiate-input:focus {
+  border-color: #cb5747;
+  box-shadow: 0px 0px 6px rgba(203, 87, 71, 0.5);
+}
+
+.required-mark {
+  color: #cb5747;
+}
+
+.negotiate-tip {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background-color: #fff7e6;
+  border-radius: 8px;
+  border: 1px solid #ffd591;
+}
+
+.tip-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.tip-text {
+  font-size: 13px;
+  color: #ad6800;
+  line-height: 1.5;
+}
+
+.dialog-btn {
+  padding: 10px 24px;
+  border-radius: 100px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn {
+  background-color: #ffffff;
+  border: 1px solid #d9d9d9;
   color: #666666;
-  font-weight: 600;
+}
+
+.cancel-btn:hover {
+  border-color: #cb5747;
+  color: #cb5747;
+}
+
+.confirm-btn {
+  background-color: #cb5747;
+  border: 1px solid #cb5747;
+  color: #ffffff;
+}
+
+.confirm-btn:hover {
+  background-color: #b04a3c;
 }
 
 .detail-container {

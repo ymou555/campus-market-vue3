@@ -93,7 +93,7 @@ const handleRefund = () => {
     
     <div class="order-footer">
       <div class="order-total">
-        共 {{ order.totalQuantity }} 件商品，合计: <span class="total-price">¥{{ order.totalAmount }}</span>
+        共 {{ order.totalQuantity }} 件商品，合计: <span class="total-price">¥{{ order.actualAmount }}</span>
       </div>
       <div class="order-actions">
         <button class="action-btn view-btn" @click="handleView">查看详情</button>
