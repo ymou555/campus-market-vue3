@@ -6,6 +6,7 @@ import FormInput from '../components/FormInput.vue';
 import PageCard from '../components/PageCard.vue';
 import UploadImage from '../components/UploadImage.vue';
 import { ElMessage } from 'element-plus';
+import axios from '../utils/axios';
 
 const router = useRouter();
 
@@ -26,8 +27,7 @@ const registerForm = reactive({
   verifyCode: ''
 });
 
-const verifyCodeImage = ref('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjQwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iNDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSIyNSIgeT0iMjUiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiMzMzMiPkFCQ0Q8L3RleHQ+PC9zdmc+');
-const correctVerifyCode = ref('ABCD');
+const captchaUrl = ref('http://localhost:8080/campus-market/api/captcha');
 
 const genderOptions = [
   { value: 'male', label: '男' },
@@ -35,13 +35,10 @@ const genderOptions = [
 ];
 
 const refreshVerifyCode = () => {
-  const codes = ['ABCD', 'EFGH', 'IJKL', 'MNOP', 'QRST', 'UVWX', 'YZAB'];
-  const randomCode = codes[Math.floor(Math.random() * codes.length)];
-  correctVerifyCode.value = randomCode;
-  verifyCodeImage.value = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjQwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iNDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSIyNSIgeT0iMjUiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiMzMzMiPiR7cmFuZG9tQ29kZX08L3RleHQ+PC9zdmc+`;
+  captchaUrl.value = `http://localhost:8080/campus-market/api/captcha?t=${Date.now()}`;
 };
 
-const handleRegister = () => {
+const handleRegister = async () => {
   if (!registerForm.username) {
     ElMessage.error('请输入用户名');
     return;
@@ -94,16 +91,43 @@ const handleRegister = () => {
     ElMessage.error('请输入验证码');
     return;
   }
-  if (registerForm.verifyCode.toUpperCase() !== correctVerifyCode.value) {
-    ElMessage.error('验证码错误');
-    refreshVerifyCode();
-    return;
-  }
 
-  ElMessage.success('入驻申请已提交，请等待管理员审核');
-  setTimeout(() => {
-    router.push('/login');
-  }, 1500);
+  try {
+    const response = await axios.post('/auth/register', {
+      captcha: registerForm.verifyCode,
+      username: registerForm.username,
+      password: registerForm.password,
+      name: registerForm.name,
+      phone: registerForm.phone,
+      email: registerForm.email,
+      city: registerForm.city,
+      gender: registerForm.gender,
+      bankAccount: registerForm.bankAccount,
+      shopName: registerForm.shopName,
+      businessLicense: registerForm.businessLicense,
+      idCardFront: registerForm.idCardFront,
+      idCardBack: registerForm.idCardBack,
+      role: 'merchant'
+    });
+
+    if (response && response.code === 200) {
+      ElMessage.success('入驻申请已提交，请等待管理员审核');
+      setTimeout(() => {
+        router.push('/login');
+      }, 1500);
+    } else {
+      ElMessage.error(response?.message || '注册失败');
+      refreshVerifyCode();
+    }
+  } catch (error) {
+    console.error('注册失败:', error);
+    if (error.response && error.response.data) {
+      ElMessage.error(error.response.data.message || '注册失败');
+    } else {
+      ElMessage.error('注册失败，请稍后重试');
+    }
+    refreshVerifyCode();
+  }
 };
 </script>
 
@@ -257,7 +281,7 @@ const handleRegister = () => {
           </div>
           <div class="form-item verify-code-item">
             <div class="verify-code-wrapper">
-              <img :src="verifyCodeImage" class="verify-code-image" @click="refreshVerifyCode" />
+              <img :src="captchaUrl" class="verify-code-image" @click="refreshVerifyCode" />
               <span class="refresh-text" @click="refreshVerifyCode">点击刷新</span>
             </div>
           </div>

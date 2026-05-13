@@ -11,12 +11,6 @@
   const router = useRouter();
   const userStore = useUserStore();
   const loginFormRef = ref();
-  const identity = ref('user');
-  const identityOptions = [
-    { value: 'user', label: '普通用户' },
-    { value: 'merchant', label: '商家' },
-    { value: 'admin', label: '管理员' }
-  ];
   const loginForm = reactive({
     username: '',
     password: '',
@@ -149,17 +143,6 @@
     <div class="flex-col self-center section">
       <span class="self-center text_2">登录</span>
       <div class="mt-50 flex-col self-stretch">
-        <span class="self-center text_3">请选择您的身份</span>
-        <div class="flex-col justify-start items-center self-center">
-          <el-select v-model="identity" placeholder="请选择" class="identity-select">
-            <el-option
-              v-for="item in identityOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value">
-            </el-option>
-          </el-select>
-        </div>
         <el-form :model="loginForm" class="mt-10">
           <div class="flex-col self-stretch group_2">
             <span class="self-start font text_5">用户名</span>
@@ -315,38 +298,11 @@
     font-weight: 700;
     line-height: 48.5px;
   }
-  .text_3 {
-    color: #555555;
-    font-size: 13px;
-    font-family: Inter;
-    line-height: 12px;
-  }
   .font {
     font-size: 15px;
     font-family: Inter;
     line-height: 14px;
     color: #333333;
-  }
-  /* 身份选择器样式 */
-  .identity-select {
-    margin-top: 6px;
-    width: 110px;
-  }
-  ::v-deep(.identity-select .el-select__wrapper) {
-    height: 25px !important;
-    border-radius: 30px !important;
-    box-shadow: none !important;
-    border: solid 1px #000000 !important;
-  }
-  ::v-deep(.identity-select .el-select__wrapper.is-hovering) {
-    box-shadow: none !important;
-    border-color: #cb5747 !important;
-    box-shadow: 0px 0px 4px rgba(203, 87, 71, 0.3) !important;
-  }
-  ::v-deep(.identity-select .el-select__wrapper.is-focused) {
-    box-shadow: none !important;
-    border-color: #cb5747 !important;
-    box-shadow: 0px 0px 6px rgba(203, 87, 71, 0.5) !important;
   }
   .group_2 {
     margin-top: 15px;

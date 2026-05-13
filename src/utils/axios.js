@@ -2,7 +2,8 @@ import axios from 'axios';
 
 const axiosInstance = axios.create({
   baseURL: 'http://localhost:8080/campus-market/api',
-  timeout: 10000
+  timeout: 10000,
+  withCredentials: true
 });
 
 // 请求拦截器
