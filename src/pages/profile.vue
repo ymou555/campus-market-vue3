@@ -1,33 +1,72 @@
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import Navbar from '../components/Navbar.vue';
 import DataCard from '../components/DataCard.vue';
 import FormInput from '../components/FormInput.vue';
 import BackButton from '../components/BackButton.vue';
 import { ElMessage } from 'element-plus';
+import axios from '../utils/axios';
+import { useUserStore } from '../store/user';
 
 const router = useRouter();
+const userStore = useUserStore();
 
 const userInfo = reactive({
-  username: 'zhangsan',
-  name: '张三',
-  phone: '13800138000',
-  email: 'zhangsan@example.com',
-  avatar: 'https://via.placeholder.com/100',
-  balance: 1250.50,
-  points: 1500,
-  orderCount: 12,
-  reviewCount: 8
+  id: null,
+  username: '',
+  name: '',
+  phone: '',
+  email: '',
+  city: '',
+  gender: '',
+  bankAccount: '',
+  balance: 0,
+  points: 0,
+  orderCount: 0,
+  reviewCount: 0
 });
+
+const getUserAvatarText = () => {
+  if (!userInfo.username) {
+    return '?';
+  }
+  return userInfo.username.substring(0, 2).toUpperCase();
+};
+
+const fetchUserProfile = async () => {
+  if (!userStore.isLoggedIn || !userStore.userInfo || !userStore.userInfo.id) {
+    return;
+  }
+  
+  try {
+    const response = await axios.get('/user/profile', {
+      params: {
+        id: userStore.userInfo.id
+      }
+    });
+    
+    if (response && response.code === 200) {
+      Object.assign(userInfo, response.data);
+    } else {
+      ElMessage.error(response?.message || '获取用户信息失败');
+    }
+  } catch (error) {
+    console.error('获取用户信息失败:', error);
+    ElMessage.error('获取用户信息失败，请稍后重试');
+  }
+};
 
 const showEditDialog = ref(false);
 const showPasswordDialog = ref(false);
 
 const editForm = reactive({
-  name: userInfo.name,
-  phone: userInfo.phone,
-  email: userInfo.email
+  username: '',
+  phone: '',
+  email: '',
+  city: '',
+  gender: '',
+  bankAccount: ''
 });
 
 const passwordForm = reactive({
@@ -48,15 +87,18 @@ const goTo = (path) => {
 };
 
 const openEditDialog = () => {
-  editForm.name = userInfo.name;
+  editForm.username = userInfo.username;
   editForm.phone = userInfo.phone;
   editForm.email = userInfo.email;
+  editForm.city = userInfo.city;
+  editForm.gender = userInfo.gender;
+  editForm.bankAccount = userInfo.bankAccount;
   showEditDialog.value = true;
 };
 
-const saveEdit = () => {
-  if (!editForm.name) {
-    ElMessage.error('请输入姓名');
+const saveEdit = async () => {
+  if (!editForm.username) {
+    ElMessage.error('请输入用户名');
     return;
   }
   if (!editForm.phone) {
@@ -76,11 +118,44 @@ const saveEdit = () => {
     return;
   }
   
-  userInfo.name = editForm.name;
-  userInfo.phone = editForm.phone;
-  userInfo.email = editForm.email;
-  showEditDialog.value = false;
-  ElMessage.success('修改成功');
+  try {
+    const params = new URLSearchParams();
+    params.append('id', userInfo.id);
+    params.append('username', editForm.username);
+    params.append('phone', editForm.phone);
+    params.append('email', editForm.email);
+    if (editForm.city) {
+      params.append('city', editForm.city);
+    }
+    if (editForm.gender) {
+      params.append('gender', editForm.gender);
+    }
+    if (editForm.bankAccount) {
+      params.append('bankAccount', editForm.bankAccount);
+    }
+    
+    const response = await axios.put('/user/profile', params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    
+    if (response && response.code === 200) {
+      userInfo.username = editForm.username;
+      userInfo.phone = editForm.phone;
+      userInfo.email = editForm.email;
+      userInfo.city = editForm.city;
+      userInfo.gender = editForm.gender;
+      userInfo.bankAccount = editForm.bankAccount;
+      showEditDialog.value = false;
+      ElMessage.success('修改成功');
+    } else {
+      ElMessage.error(response?.message || '修改失败');
+    }
+  } catch (error) {
+    console.error('修改失败:', error);
+    ElMessage.error('修改失败，请稍后重试');
+  }
 };
 
 const openPasswordDialog = () => {
@@ -90,7 +165,7 @@ const openPasswordDialog = () => {
   showPasswordDialog.value = true;
 };
 
-const changePassword = () => {
+const changePassword = async () => {
   if (!passwordForm.oldPassword) {
     ElMessage.error('请输入旧密码');
     return;
@@ -112,9 +187,33 @@ const changePassword = () => {
     return;
   }
   
-  showPasswordDialog.value = false;
-  ElMessage.success('密码修改成功');
+  try {
+    const params = new URLSearchParams();
+    params.append('userId', userInfo.id);
+    params.append('oldPassword', passwordForm.oldPassword);
+    params.append('newPassword', passwordForm.newPassword);
+    
+    const response = await axios.post('/auth/change-password', params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    
+    if (response && response.code === 200) {
+      showPasswordDialog.value = false;
+      ElMessage.success('密码修改成功');
+    } else {
+      ElMessage.error(response?.message || '密码修改失败');
+    }
+  } catch (error) {
+    console.error('密码修改失败:', error);
+    ElMessage.error('密码修改失败，请稍后重试');
+  }
 };
+
+onMounted(() => {
+  fetchUserProfile();
+});
 </script>
 
 <template>
@@ -127,8 +226,7 @@ const changePassword = () => {
     <div class="profile-container">
       <div class="user-section">
         <div class="user-avatar">
-          <img :src="userInfo.avatar" class="avatar-img" />
-          <div class="avatar-edit">编辑</div>
+          <span class="avatar-text">{{ getUserAvatarText() }}</span>
         </div>
         <div class="user-info">
           <div class="user-name">{{ userInfo.name }}</div>
@@ -174,6 +272,18 @@ const changePassword = () => {
             <span class="info-label">邮箱</span>
             <span class="info-value">{{ userInfo.email }}</span>
           </div>
+          <div class="info-item">
+            <span class="info-label">城市</span>
+            <span class="info-value">{{ userInfo.city || '未设置' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">性别</span>
+            <span class="info-value">{{ userInfo.gender || '未设置' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">银行卡号</span>
+            <span class="info-value">{{ userInfo.bankAccount || '未设置' }}</span>
+          </div>
         </div>
         <div class="info-actions">
           <button class="info-btn" @click="openEditDialog">编辑资料</button>
@@ -185,9 +295,9 @@ const changePassword = () => {
     <el-dialog v-model="showEditDialog" title="编辑资料" width="500px">
       <div class="dialog-form">
         <FormInput 
-          v-model="editForm.name"
-          label="姓名"
-          placeholder="请输入姓名"
+          v-model="editForm.username"
+          label="用户名"
+          placeholder="请输入用户名"
           required
         />
         <FormInput 
@@ -201,6 +311,29 @@ const changePassword = () => {
           label="邮箱"
           placeholder="请输入邮箱"
           required
+        />
+        <FormInput 
+          v-model="editForm.city"
+          label="城市"
+          placeholder="请输入城市"
+        />
+        <div class="form-item">
+          <label class="form-label">性别</label>
+          <div class="gender-options">
+            <label class="gender-option">
+              <input type="radio" v-model="editForm.gender" value="男" />
+              <span>男</span>
+            </label>
+            <label class="gender-option">
+              <input type="radio" v-model="editForm.gender" value="女" />
+              <span>女</span>
+            </label>
+          </div>
+        </div>
+        <FormInput 
+          v-model="editForm.bankAccount"
+          label="银行卡号"
+          placeholder="请输入银行卡号"
         />
       </div>
       <template #footer>
@@ -272,31 +405,22 @@ const changePassword = () => {
 
 .user-avatar {
   position: relative;
-  cursor: pointer;
-}
-
-.avatar-img {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  border: 3px solid #cb5747;
+  background-color: #d03838;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.3s ease;
 }
 
-.avatar-edit {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  padding: 4px 8px;
-  background-color: #cb5747;
+.avatar-text {
   color: #ffffff;
-  font-size: 11px;
-  border-radius: 8px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.user-avatar:hover .avatar-edit {
-  opacity: 1;
+  font-size: 32px;
+  font-family: Inter;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .user-info {
@@ -459,5 +583,40 @@ const changePassword = () => {
 .confirm-btn:hover {
   background-color: #b04a3c;
   border-color: #b04a3c;
+}
+
+.form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 14px;
+  font-family: Inter;
+  color: #333333;
+  font-weight: 500;
+}
+
+.gender-options {
+  display: flex;
+  gap: 20px;
+}
+
+.gender-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: Inter;
+  color: #333333;
+}
+
+.gender-option input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #cb5747;
 }
 </style>
