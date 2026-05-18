@@ -438,7 +438,7 @@ onMounted(() => {
                   <span v-for="i in 5" :key="i" class="star" :class="{ filled: i <= review.rating }">★</span>
                 </div>
               </div>
-              <p class="review-text">{{ review.content }}</p>
+              <p class="review-text">{{ review.content || '用户未填写评价内容' }}</p>
               <span class="review-time">{{ review.time }}</span>
             </div>
           </div>

@@ -231,9 +231,24 @@ const buyAgain = () => {
   router.push('/');
 };
 
-const cancelOrder = () => {
-  ElMessage.success('订单已取消');
-  order.status = 'cancelled';
+const cancelOrder = async () => {
+  try {
+    const response = await axios.post('/order/cancel', null, {
+      params: {
+        orderId: order.id
+      }
+    });
+    
+    if (response && response.code === 200) {
+      ElMessage.success('订单已取消');
+      await fetchOrderDetail();
+    } else {
+      ElMessage.error(response?.message || '取消订单失败');
+    }
+  } catch (error) {
+    console.error('取消订单失败:', error);
+    ElMessage.error('取消订单失败，请稍后重试');
+  }
 };
 
 const confirmMeetInfo = async () => {
@@ -299,14 +314,24 @@ const closeMeetDialog = () => {
   newMeetSuggestion.meetLocation = '';
 };
 
-const cancelBargaining = () => {
-  ElMessage.success('已取消议价');
-  order.status = 'cancelled';
-};
-
-const deleteOrder = () => {
-  ElMessage.success('订单已删除');
-  router.push('/orders');
+const cancelBargaining = async () => {
+  try {
+    const response = await axios.post('/order/cancel', null, {
+      params: {
+        orderId: order.id
+      }
+    });
+    
+    if (response && response.code === 200) {
+      ElMessage.success('已取消议价');
+      await fetchOrderDetail();
+    } else {
+      ElMessage.error(response?.message || '取消议价失败');
+    }
+  } catch (error) {
+    console.error('取消议价失败:', error);
+    ElMessage.error('取消议价失败，请稍后重试');
+  }
 };
 
 const callSeller = () => {
@@ -548,21 +573,17 @@ onUnmounted(() => {
         </template>
         
         <template v-if="order.status === 'received'">
-          <button class="action-btn primary-btn" @click="router.push(`/review/${order.id}`)">去评价</button>
+          <button class="action-btn primary-btn" @click="router.push(`/reviews`)">去评价</button>
           <button class="action-btn" @click="applyRefund">申请退货</button>
         </template>
         
         <template v-if="order.status === 'completed'">
           <button class="action-btn" @click="buyAgain">再次购买</button>
-          <button class="action-btn" @click="router.push(`/review/${order.id}`)">查看评价</button>
+          <button class="action-btn" @click="router.push(`/reviews`)">查看评价</button>
         </template>
         
         <template v-if="order.status === 'returning'">
           <button class="action-btn" disabled>等待商家处理</button>
-        </template>
-        
-        <template v-if="order.status === 'cancelled' || order.status === 'refunded'">
-          <button class="action-btn" @click="deleteOrder">删除订单</button>
         </template>
       </div>
     </div>

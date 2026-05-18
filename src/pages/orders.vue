@@ -82,8 +82,24 @@ const handlePay = async (order) => {
   }
 };
 
-const handleCancel = (order) => {
-  ElMessage.success(`订单 ${order.orderNo} 已取消`);
+const handleCancel = async (order) => {
+  try {
+    const response = await axios.post('/order/cancel', null, {
+      params: {
+        orderId: order.id
+      }
+    });
+    
+    if (response && response.code === 200) {
+      ElMessage.success('订单已取消');
+      fetchOrders(currentTab.value);
+    } else {
+      ElMessage.error(response?.message || '取消订单失败');
+    }
+  } catch (error) {
+    console.error('取消订单失败:', error);
+    ElMessage.error('取消订单失败，请稍后重试');
+  }
 };
 
 const handleConfirm = async (order) => {
@@ -122,7 +138,7 @@ const handleConfirm = async (order) => {
 };
 
 const handleReview = (order) => {
-  router.push(`/review/${order.id}`);
+  router.push(`/reviews`);
 };
 
 const handleRefund = (order) => {

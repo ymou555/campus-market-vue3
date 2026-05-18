@@ -450,7 +450,7 @@ onMounted(() => {
         </div>
         <div class="ban-tip danger">
           <span class="tip-icon">🚫</span>
-          <span class="tip-text">关闭店铺将下架该商家的所有商品，店铺将暂时关闭，商家无法进行任何操作。</span>
+          <span class="tip-text">关闭店铺将下架该商家的所有商品，商家无法进行任何操作。</span>
         </div>
       </div>
       <template #footer>

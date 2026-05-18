@@ -112,7 +112,8 @@ const fetchLastAddress = async () => {
         id: 1,
         name: response.data.receiverName,
         phone: response.data.receiverPhone,
-        address: response.data.receiverAddress
+        address: response.data.receiverAddress,
+        isLastUsed: true
       }];
       selectedAddress.value = 1;
     }
@@ -187,7 +188,8 @@ const addNewAddress = () => {
   
   addresses.value.push({
     id: Date.now(),
-    ...newAddress
+    ...newAddress,
+    isLastUsed: false
   });
   
   selectedAddress.value = addresses.value[addresses.value.length - 1].id;
@@ -347,7 +349,9 @@ onMounted(() => {
               <div class="address-header">
                 <span class="address-name">{{ address.name }}</span>
                 <span class="address-phone">{{ address.phone }}</span>
-                <span class="last-used-tag">上次使用</span>
+                <span class="last-used-tag" :class="{ 'new-tag': !address.isLastUsed }">
+                  {{ address.isLastUsed ? '上次使用' : '新添加' }}
+                </span>
               </div>
               <div class="address-detail">{{ address.address }}</div>
             </div>
@@ -661,6 +665,10 @@ onMounted(() => {
   color: #ffffff;
   font-size: 12px;
   border-radius: 4px;
+}
+
+.new-tag {
+  background-color: #52c41a;
 }
 
 .address-detail {
